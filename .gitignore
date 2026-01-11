@@ -1,0 +1,59 @@
+# OSX
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# React Native
+*.jsbundle
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.class
+*.dex
+build/
+captures/
+.gradle/
+local.properties
+*.iml
+.idea/
+*.hprof
+
+# iOS
+Pods/
+*.xcworkspace/
+*.xcuserdata
+DerivedData/
+build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+
+# CocoaPods
+ios/Pods/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# VS Code
+.vscode/
+
+# Misc
+.DS_Store
+*.log
+*.tmp
+*.temp
