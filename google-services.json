@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "605290540376",
+    "project_id": "literakids-a05b3",
+    "storage_bucket": "literakids-a05b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:605290540376:android:62a0180f4defd2b2ca092d",
+        "android_client_info": {
+          "package_name": "com.hauzanedu.literakids"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkumMHHOZRLHZABIq9oE-Qmso6TuUfrH0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

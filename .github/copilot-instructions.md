@@ -12,6 +12,7 @@
 - [x] Create README documentation
 
 ## Project Information
+
 - **Project Name**: LiteraKids
 - **Framework**: React Native (JavaScript)
 - **Navigation**: React Navigation v6

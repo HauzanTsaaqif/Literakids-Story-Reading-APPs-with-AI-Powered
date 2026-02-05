@@ -2,62 +2,137 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Text, StyleSheet, Image } from 'react-native';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
 
-// Import Screens
+// Import Child Screens
 import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import LearningScreen from '../screens/LearningScreen';
 import SplashScreen from '../screens/SplashScreen';
+import StoryReaderScreen from '../screens/StoryReaderScreen';
+
+// Import Parent Screens
+import LoginScreen from '../screens/parent/LoginScreen';
+import RegisterScreen from '../screens/parent/RegisterScreen';
+import DashboardScreen from '../screens/parent/DashboardScreen';
+import BookListScreen from '../screens/parent/BookListScreen';
+import SettingsScreen from '../screens/parent/SettingsScreen';
+import GlobalBookListScreen from '../screens/parent/GlobalBookListScreen';
+import GenerateStoryScreen from '../screens/parent/GenerateStoryScreen';
+import StoryEditorScreen from '../screens/parent/StoryEditorScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tab Navigator
-function MainTabNavigator() {
+// Child Tab Navigator (Ruang Baca + Orang Tua)
+function ChildTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#FF6B6B',
+        tabBarActiveTintColor: '#FF6B9D',
         tabBarInactiveTintColor: '#999',
         tabBarStyle: {
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 65,
+          backgroundColor: '#FFFFFF',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
         },
       }}>
       <Tab.Screen
-        name="Home"
+        name="Reading"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Beranda',
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+          tabBarLabel: 'Ruang Baca',
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require('../assets/images/icon/book.png')}
+              style={styles.iconImage}
+            />
+          ),
         }}
       />
       <Tab.Screen
-        name="Learning"
-        component={LearningScreen}
+        name="ParentTab"
+        component={LoginScreen}
         options={{
-          tabBarLabel: 'Belajar',
-          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Profil',
-          tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
+          tabBarLabel: 'Orang Tua',
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require('../assets/images/icon/orangtua.png')}
+              style={styles.iconImage}
+            />
+          ),
         }}
       />
     </Tab.Navigator>
   );
 }
 
-// Simple TabIcon Component (you can replace with react-native-vector-icons later)
-const TabIcon = ({ name, color }) => {
-  return <Text style={{ color, fontSize: 24 }}>●</Text>;
-};
+// Parent Admin Tab Navigator
+function ParentAdminNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#E91E63',
+        tabBarInactiveTintColor: '#999',
+        tabBarStyle: {
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 70,
+          backgroundColor: '#FFFFFF',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+      }}>
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          tabBarLabel: 'Dashboard',
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require('../assets/images/icon/chart.png')}
+              style={styles.tabIcon}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="BookList"
+        component={BookListScreen}
+        options={{
+          tabBarLabel: 'Buku',
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require('../assets/images/icon/book.png')}
+              style={styles.tabIcon}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'Pengaturan',
+          tabBarIcon: ({ color }) => (
+            <Image
+              source={require('../assets/images/icon/settings.png')}
+              style={styles.tabIcon}
+            />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 // Root Stack Navigator
 export default function AppNavigator() {
@@ -69,8 +144,50 @@ export default function AppNavigator() {
           headerShown: false,
         }}>
         <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <Stack.Screen name="Main" component={ChildTabNavigator} />
+        <Stack.Screen
+          name="StoryReader"
+          component={StoryReaderScreen}
+          options={{
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="ParentAdmin" component={ParentAdminNavigator} />
+        <Stack.Screen
+          name="GlobalBookList"
+          component={GlobalBookListScreen}
+          options={{
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="GenerateStory"
+          component={GenerateStoryScreen}
+          options={{
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="StoryEditorScreen"
+          component={StoryEditorScreen}
+          options={{
+            presentation: 'card',
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  iconImage: {
+    width: 50,
+    height: 50,
+  },
+  tabIcon: {
+    width: 40,
+    height: 40,
+  },
+});

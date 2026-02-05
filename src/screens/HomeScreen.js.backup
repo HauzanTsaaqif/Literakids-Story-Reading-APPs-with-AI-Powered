@@ -1,0 +1,357 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+  Image,
+  Platform,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { StoryCard } from '../components';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { GENRES } from '../constants/stories';
+import { authService, parentBooksService } from '../services/firebaseService';
+
+const HomeScreen = ({ navigation }) => {
+  const [selectedGenre, setSelectedGenre] = useState('all');
+  const [stories, setStories] = useState([]);
+  const [filteredStories, setFilteredStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  const waveY = useSharedValue(0);
+
+  useEffect(() => {
+    // Wave animation untuk greeting
+    waveY.value = withRepeat(
+      withSequence(
+        withTiming(-10, { duration: 500 }),
+        withTiming(0, { duration: 500 })
+      ),
+      -1,
+      true
+    );
+
+    loadStories();
+  }, []);
+
+  const loadStories = async () => {
+    try {
+      const user = authService.getCurrentUser();
+      
+      if (user) {
+        // Load books from parent's collection
+        const parentBooks = await parentBooksService.getParentBooks(user.uid);
+        setStories(parentBooks);
+        setFilteredStories(parentBooks);
+      } else {
+        // No user logged in, show empty
+        setStories([]);
+        setFilteredStories([]);
+      }
+    } catch (error) {
+      console.error('Load Stories Error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadStories();
+  };
+
+  useEffect(() => {
+    if (selectedGenre === 'all') {
+      setFilteredStories(stories);
+    } else {
+      setFilteredStories(stories.filter(story => story.genre === selectedGenre));
+    }
+  }, [selectedGenre, stories]);
+
+  const waveAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: waveY.value }],
+    };
+  });
+
+  const handleStoryPress = (story) => {
+    navigation.navigate('StoryReader', { story });
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }>
+        
+        {/* Greeting Section with Mascot and Animation */}
+        <View style={styles.greetingContainer}>
+          <View style={styles.mascotContainer}>
+            <Image 
+              source={require('../assets/images/mascot/hello_mainpage.png')}
+              style={styles.mascotImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.greetingTextContainer}>
+            <View style={styles.greetingRow}>
+              <Animated.Text style={[styles.waveEmoji, waveAnimatedStyle]}>
+                👋
+              </Animated.Text>
+              <Text style={styles.greetingText}>
+                Halo, Anak Pintar!
+              </Text>
+            </View>
+            <Text style={styles.subGreeting}>
+              Mau baca cerita apa hari ini? ✨
+            </Text>
+          </View>
+        </View>
+
+        {/* Genre Filter */}
+        <View style={styles.genreSection}>
+          <Text style={styles.sectionTitle}>Pilih Cerita 📖</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.genreScroll}
+            contentContainerStyle={styles.genreScrollContent}>
+            
+            <TouchableOpacity
+              style={[
+                styles.genreChip,
+                selectedGenre === 'all' && styles.genreChipActive,
+                { backgroundColor: selectedGenre === 'all' ? COLORS.primary : COLORS.white }
+              ]}
+              onPress={() => setSelectedGenre('all')}>
+              <Text style={styles.genreIcon}>🌟</Text>
+              <Text style={[
+                styles.genreText,
+                selectedGenre === 'all' && styles.genreTextActive
+              ]}>
+                Semua
+              </Text>
+            </TouchableOpacity>
+
+            {GENRES.map((genre) => (
+              <TouchableOpacity
+                key={genre.id}
+                style={[
+                  styles.genreChip,
+                  selectedGenre === genre.id && styles.genreChipActive,
+                  {
+                    backgroundColor: selectedGenre === genre.id ? genre.color : COLORS.white
+                  }
+                ]}
+                onPress={() => setSelectedGenre(genre.id)}>
+                <Text style={styles.genreIcon}>{genre.icon}</Text>
+                <Text style={[
+                  styles.genreText,
+                  selectedGenre === genre.id && styles.genreTextActive
+                ]}>
+                  {genre.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Stories Grid */}
+        <View style={styles.storiesSection}>
+          <Text style={styles.sectionTitle}>
+            {selectedGenre === 'all' ? 'Semua Cerita' : GENRES.find(g => g.id === selectedGenre)?.name} 
+            {' '}({filteredStories.length})
+          </Text>
+          
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Memuat cerita...</Text>
+            </View>
+          ) : (
+            <>
+              {filteredStories.map((story) => (
+                <StoryCard
+                  key={story.id}
+                  story={story}
+                  onPress={() => handleStoryPress(story)}
+                />
+              ))}
+
+              {filteredStories.length === 0 && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>📚</Text>
+                  <Text style={styles.emptyText}>
+                    {stories.length === 0 
+                      ? 'Belum ada buku. Orang tua bisa menambahkan buku di tab "Orang Tua"'
+                      : 'Belum ada cerita di kategori ini'}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: SPACING.xxl,
+  },
+  greetingContainer: {
+    padding: SPACING.lg,
+    paddingTop: SPACING.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
+  },
+  mascotContainer: {
+    marginRight: SPACING.md,
+  },
+  mascotImage: {
+    width: 80,
+    height: 80,
+  },
+  greetingTextContainer: {
+    flex: 1,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  waveEmoji: {
+    fontSize: 32,
+    marginRight: SPACING.xs,
+  },
+  greetingText: {
+    fontSize: FONTS.sizes.xlarge,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.text,
+  },
+  subGreeting: {
+    fontSize: FONTS.sizes.medium,
+    color: COLORS.textLight,
+  },
+  loadingContainer: {
+    paddingVertical: SPACING.xxl * 2,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: SPACING.md,
+    fontSize: FONTS.sizes.medium,
+    color: COLORS.textLight,
+  },
+  genreSection: {
+    marginBottom: SPACING.lg,
+  },
+  sectionTitle: {
+    fontSize: FONTS.sizes.xlarge,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.text,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  genreScroll: {
+    paddingLeft: SPACING.lg,
+  },
+  genreScrollContent: {
+    paddingRight: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  genreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 20,
+    marginRight: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  genreChipActive: {
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  genreIcon: {
+    fontSize: 20,
+    marginRight: 6,
+  },
+  genreText: {
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.semibold,
+    color: COLORS.text,
+  },
+  genreTextActive: {
+    color: COLORS.white,
+  },
+  storiesSection: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xxl,
+  },
+  emptyIcon: {
+    fontSize: 60,
+    marginBottom: SPACING.md,
+  },
+  emptyText: {
+    fontSize: FONTS.sizes.large,
+    color: COLORS.textLight,
+    textAlign: 'center',
+  },
+  bottomSpacing: {
+    height: SPACING.xxl,
+  },
+});
+
+export default HomeScreen;

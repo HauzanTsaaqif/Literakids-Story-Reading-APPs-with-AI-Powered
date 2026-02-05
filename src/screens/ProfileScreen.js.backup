@@ -1,0 +1,248 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { COLORS, FONTS, SPACING } from '../constants/theme';
+
+const ProfileScreen = () => {
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.avatarContainer}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>👶</Text>
+          </View>
+        </View>
+        <Text style={styles.name}>Anak Pintar</Text>
+        <Text style={styles.level}>Pembaca Pemula 🌟</Text>
+      </View>
+
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statEmoji}>📚</Text>
+          <Text style={styles.statNumber}>12</Text>
+          <Text style={styles.statLabel}>Cerita</Text>
+          <Text style={styles.statLabel}>Dibaca</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statEmoji}>⏱️</Text>
+          <Text style={styles.statNumber}>45</Text>
+          <Text style={styles.statLabel}>Menit</Text>
+          <Text style={styles.statLabel}>Belajar</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statEmoji}>🏆</Text>
+          <Text style={styles.statNumber}>8</Text>
+          <Text style={styles.statLabel}>Badge</Text>
+          <Text style={styles.statLabel}>Didapat</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Pencapaian 🎉</Text>
+        <View style={styles.achievementCard}>
+          <View style={styles.achievementRow}>
+            <Text style={styles.achievementIcon}>🥇</Text>
+            <View>
+              <Text style={styles.achievementText}>Pembaca Rajin</Text>
+              <Text style={styles.achievementDesc}>Membaca 10 cerita</Text>
+            </View>
+          </View>
+          <View style={styles.achievementRow}>
+            <Text style={styles.achievementIcon}>⭐</Text>
+            <View>
+              <Text style={styles.achievementText}>Bintang 50</Text>
+              <Text style={styles.achievementDesc}>Mengumpulkan 50 bintang</Text>
+            </View>
+          </View>
+          <View style={styles.achievementRow}>
+            <Text style={styles.achievementIcon}>📖</Text>
+            <View>
+              <Text style={styles.achievementText}>Pecinta Cerita</Text>
+              <Text style={styles.achievementDesc}>Membaca setiap hari</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Untuk Orang Tua 👨‍👩‍👧</Text>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>👤</Text>
+          <Text style={styles.menuText}>Login Orang Tua</Text>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>📊</Text>
+          <Text style={styles.menuText}>Laporan Progress</Text>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>⚙️</Text>
+          <Text style={styles.menuText}>Pengaturan</Text>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>ℹ️</Text>
+          <Text style={styles.menuText}>Tentang Aplikasi</Text>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.bottomSpacing} />
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xxl,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.primary,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  avatarContainer: {
+    marginBottom: SPACING.md,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarText: {
+    fontSize: 60,
+  },
+  name: {
+    fontSize: FONTS.sizes.xxlarge,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.white,
+    marginBottom: SPACING.xs,
+  },
+  level: {
+    fontSize: FONTS.sizes.large,
+    color: COLORS.white,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xl,
+    marginTop: -SPACING.xl,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: SPACING.md,
+    marginHorizontal: SPACING.xs,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statEmoji: {
+    fontSize: 36,
+    marginBottom: SPACING.xs,
+  },
+  statNumber: {
+    fontSize: FONTS.sizes.xxlarge,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
+  },
+  statLabel: {
+    fontSize: FONTS.sizes.small,
+    color: COLORS.textLight,
+    textAlign: 'center',
+  },
+  section: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.lg,
+  },
+  sectionTitle: {
+    fontSize: FONTS.sizes.xlarge,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  achievementCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: SPACING.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  achievementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  achievementIcon: {
+    fontSize: 36,
+    marginRight: SPACING.md,
+  },
+  achievementText: {
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.text,
+  },
+  achievementDesc: {
+    fontSize: FONTS.sizes.small,
+    color: COLORS.textLight,
+  },
+  menuButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: SPACING.lg,
+    borderRadius: 15,
+    marginBottom: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  menuIcon: {
+    fontSize: 28,
+    marginRight: SPACING.md,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.semibold,
+    color: COLORS.text,
+  },
+  menuArrow: {
+    fontSize: 24,
+    color: COLORS.textLight,
+  },
+  bottomSpacing: {
+    height: SPACING.xxl,
+  },
+});
+
+export default ProfileScreen;

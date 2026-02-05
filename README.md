@@ -84,11 +84,13 @@ Pastikan Anda sudah menginstall:
 ## ⚙️ Instalasi
 
 1. **Clone repository atau setup project**
+
    ```bash
    cd d:\Kampus\Skripsi\Saya\app
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    # atau
@@ -117,6 +119,7 @@ npm run web        # Browser
 ```
 
 **Scan QR Code:**
+
 - Android: Scan dengan Expo Go app
 - iOS: Scan dengan Camera app
 
@@ -132,21 +135,25 @@ npm run web        # Browser
 ### Build APK (Android) - Tanpa Android Studio!
 
 **1. Install EAS CLI:**
+
 ```bash
 npm install -g eas-cli
 ```
 
 **2. Login ke Expo:**
+
 ```bash
 eas login
 ```
 
 **3. Configure project:**
+
 ```bash
 eas build:configure
 ```
 
 **4. Build APK (Preview/Debug):**
+
 ```bash
 npm run build:apk
 # atau
@@ -154,6 +161,7 @@ eas build -p android --profile preview
 ```
 
 **5. Build AAB (Production untuk Play Store):**
+
 ```bash
 npm run build:android
 # atau
@@ -187,6 +195,7 @@ npx expo export:web
 ```
 
 **Deploy otomatis ke Vercel:**
+
 ```bash
 npm install -g vercel
 vercel --prod
@@ -195,27 +204,33 @@ vercel --prod
 ## 📤 Cara Deploy/Publish
 
 ### 1. **Expo Updates (Over-the-Air)**
+
 ```bash
 eas update --branch production
 ```
+
 Update app tanpa build ulang!
 
 ### 2. **Google Play Store**
+
 - Build AAB: `eas build -p android --profile production`
 - Upload ke Play Console
 - Biaya: $25 sekali seumur hidup
 
 ### 3. **Apple App Store**
+
 - Build IPA: `eas build -p ios --profile production`
 - Upload via App Store Connect
 - Biaya: $99/tahun
 
 ### 4. **Direct APK Download**
+
 - Build APK preview
 - Share link download ke user
 - User install manual (gratis!)
 
 ### 5. **Expo Web**
+
 - Deploy ke Vercel/Netlify
 - User akses via browser
 - Gratis!
@@ -233,6 +248,7 @@ File `eas.json` sudah dikonfigurasi dengan 3 profiles:
 ```
 
 **Contoh penggunaan:**
+
 ```bash
 # Development
 eas build --profile development
@@ -259,12 +275,14 @@ App
 ## 🎨 Design System
 
 ### Colors
+
 - Primary: `#FF6B6B` (Merah)
 - Secondary: `#4ECDC4` (Tosca)
 - Accent: `#FFD93D` (Kuning)
 - Background: `#FFF8F0` (Krem)
 
 ### Typography
+
 - System default fonts
 - Sizes: 12, 16, 20, 24, 32
 
@@ -334,6 +352,7 @@ const userData = await getData(STORAGE_KEYS.USER_DATA);
 ## 🐛 Troubleshooting
 
 ### Metro Bundler Cache Issues
+
 ```bash
 npx expo start -c
 # atau
@@ -341,11 +360,13 @@ npm start -- -c
 ```
 
 ### Clear Expo Cache
+
 ```bash
 npx expo start -c --clear
 ```
 
 ### Reset Everything
+
 ```bash
 rm -rf node_modules
 rm package-lock.json
@@ -354,6 +375,7 @@ npx expo start -c
 ```
 
 ### Build Issues
+
 ```bash
 # Clear EAS build cache
 eas build --clear-cache
@@ -402,6 +424,7 @@ Copyright © 2026 LiteraKids
 ## 📞 Kontak
 
 Untuk pertanyaan atau masukan, silakan hubungi:
+
 - Email: [email@example.com]
 - GitHub: [github.com/username]
 
