@@ -16,7 +16,7 @@ import {
   parentBooksService,
 } from '../../services/firebaseService';
 import ParentHeader from '../../components/ParentHeader';
-import { BASE_URL } from '@env';
+import { getCurrentBaseUrl } from '../../services/api';
 import { saveData } from '../../services/storage';
 
 const THEMES = [
@@ -91,7 +91,7 @@ const MORAL_VALUES = [
   },
 ];
 
-const WORD_COUNTS = [100, 200, 300, 400, 500];
+const WORD_COUNTS = [300, 400, 500, 600, 700, 800];
 
 const GenerateStoryScreen = ({ navigation }) => {
   const [selectedTheme, setSelectedTheme] = useState(null);
@@ -116,7 +116,7 @@ const GenerateStoryScreen = ({ navigation }) => {
       }
 
       // Call API to generate story
-      const apiUrl = `${BASE_URL}/generate`;
+      const apiUrl = `${await getCurrentBaseUrl()}/generate`;
       console.log('Calling API:', apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -151,8 +151,61 @@ const GenerateStoryScreen = ({ navigation }) => {
       });
     } catch (error) {
       console.error('Generate Story Error:', error);
-      Alert.alert('Error', 'Gagal membuat cerita: ' + error.message);
+
+      // Check if error is network/timeout related
+      const isNetworkError =
+        error.message?.toLowerCase().includes('network') ||
+        error.message?.toLowerCase().includes('timeout') ||
+        error.message?.toLowerCase().includes('failed to fetch') ||
+        error.message?.toLowerCase().includes('connection') ||
+        !navigator.onLine;
+
+      if (isNetworkError) {
+        Alert.alert(
+          'Koneksi Bermasalah',
+          'Gagal membuat cerita, periksa koneksi Anda',
+          [
+            {
+              text: 'Back',
+              style: 'cancel',
+              onPress: () => setGenerating(false),
+            },
+            {
+              text: 'Retry',
+              onPress: () => {
+                setGenerating(false);
+                // Retry after a short delay
+                setTimeout(() => handleGenerate(), 300);
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          'Gagal membuat cerita: ' + error.message,
+          [
+            {
+              text: 'Back',
+              style: 'cancel',
+              onPress: () => setGenerating(false),
+            },
+            {
+              text: 'Retry',
+              onPress: () => {
+                setGenerating(false);
+                setTimeout(() => handleGenerate(), 300);
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      }
+      return; // Don't execute finally block, buttons will handle it
     } finally {
+      // Only set to false if we didn't show retry dialog
+      if (!generating) return;
       setGenerating(false);
     }
   };

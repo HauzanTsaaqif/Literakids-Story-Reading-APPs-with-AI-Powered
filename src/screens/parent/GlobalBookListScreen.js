@@ -146,10 +146,20 @@ const GlobalBookListScreen = ({ navigation }) => {
         message.push(`${booksToRemove.length} buku dihapus`);
 
       Alert.alert('Berhasil', message.join(', '));
+      // Reset the navigation state and open ParentAdmin -> BookList tab
       rootNavigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{ name: 'Main' }],
+          routes: [
+            {
+              name: 'ParentAdmin',
+              // Provide nested state so the ParentAdmin tab navigator opens on BookList
+              state: {
+                index: 0,
+                routes: [{ name: 'BookList' }],
+              },
+            },
+          ],
         }),
       );
     } catch (error) {

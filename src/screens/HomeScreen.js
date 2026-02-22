@@ -84,7 +84,21 @@ const HomeScreen = ({ navigation }) => {
 
   const loadStories = async () => {
     try {
-      const user = authService.getCurrentUser();
+      // First try to get current user from Firebase
+      let user = authService.getCurrentUser();
+
+      // If no current user, check stored auth (for app restart scenario)
+      if (!user) {
+        const userId = await authService.getUserIdFromStorage();
+        if (userId) {
+          // User is logged in but Firebase auth not yet restored
+          // Load books using stored userId
+          const parentBooks = await parentBooksService.getParentBooks(userId);
+          setStories(parentBooks);
+          setFilteredStories(parentBooks);
+          return;
+        }
+      }
 
       if (user) {
         // Load books from parent's collection

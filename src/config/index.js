@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://api.literakids.com',
+  DEFAULT_BASE_URL: 'https://uninfinite-shantae-vanadious.ngrok-free.dev', // Default fallback URL
   TIMEOUT: 30000,
   VERSION: 'v1',
 };

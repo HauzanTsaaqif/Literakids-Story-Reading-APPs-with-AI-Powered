@@ -282,9 +282,14 @@ const StoryReaderScreen = ({ route, navigation }) => {
               </Text>
             )}
           </View>
-
-          {/* Story Text */}
-          <Text style={styles.storyText}>{item}</Text>
+          <ScrollView
+            style={styles.storyTextContainer}
+            contentContainerStyle={styles.storyTextContent}
+            nestedScrollEnabled={true}
+            persistentScrollbar={Platform.OS === 'android'}
+            showsVerticalScrollIndicator={true}>
+            <Text style={styles.storyText}>{item}</Text>
+          </ScrollView>
 
           {/* Decorative Elements */}
           <View style={styles.decorativeDotsTop}>
@@ -388,6 +393,7 @@ const StoryReaderScreen = ({ route, navigation }) => {
             decelerationRate="fast"
             snapToAlignment="center"
             snapToInterval={SCREEN_WIDTH}
+            nestedScrollEnabled={true}
             getItemLayout={(data, index) => ({
               length: SCREEN_WIDTH,
               offset: SCREEN_WIDTH * index,
@@ -592,6 +598,7 @@ const styles = StyleSheet.create({
   },
   headerBadge: {
     textAlign: 'center',
+    alignSelf: 'center',
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
     borderRadius: 15,
@@ -630,7 +637,7 @@ const styles = StyleSheet.create({
   storyContentCard: {
     backgroundColor: COLORS.white,
     borderRadius: 30,
-    paddingVertical: SPACING.xl,
+    paddingVertical: SPACING.md + 4,
     paddingHorizontal: SPACING.lg,
     height: SCREEN_HEIGHT * 0.6,
     shadowColor: COLORS.primary,
@@ -689,6 +696,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.xs,
+    textAlign: 'center',
+    alignSelf: 'center',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
   },
   headerGenreImage: {
     width: 34,
@@ -698,7 +712,7 @@ const styles = StyleSheet.create({
   headerGenreText: {
     fontSize: FONTS.sizes.small,
     fontWeight: FONTS.weights.bold,
-    color: COLORS.primary,
+    color: COLORS.secondary,
   },
   storyText: {
     fontSize: FONTS.sizes.medium,
@@ -707,6 +721,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: FONTS.weights.semibold,
     letterSpacing: 0.5,
+  },
+  storyTextContainer: {
+    flex: 1,
+    height: '100%',
+  },
+  storyTextContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   decorativeDotsTop: {
     flexDirection: 'row',

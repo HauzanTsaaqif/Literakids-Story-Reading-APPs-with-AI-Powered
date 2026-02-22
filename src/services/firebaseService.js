@@ -19,6 +19,7 @@ import {
   limit,
   serverTimestamp,
 } from 'firebase/firestore';
+import { saveData, getData, removeData, STORAGE_KEYS } from './storage';
 
 // =====================
 // AUTHENTICATION SERVICE
@@ -36,7 +37,7 @@ export const authService = {
       const user = userCredential.user;
 
       // Create parent profile in Firestore
-      await setDoc(doc(firestore, 'parents', user.uid), {
+      const profileData = {
         email: userData.email,
         username: userData.username,
         gender: userData.gender,
@@ -48,6 +49,14 @@ export const authService = {
           autoPlay: false,
           soundEnabled: true,
         },
+      };
+
+      await setDoc(doc(firestore, 'parents', user.uid), profileData);
+
+      // Save auth data to AsyncStorage for persistence
+      await saveData(STORAGE_KEYS.AUTH_TOKEN, {
+        uid: user.uid,
+        email: user.email,
       });
 
       return user;
@@ -58,23 +67,11 @@ export const authService = {
   },
 
   // Login parent
-  login: async (emailOrUsername, password) => {
+  login: async (email, password) => {
     try {
-      let email = emailOrUsername;
-
-      if (!emailOrUsername.includes('@')) {
-        const q = query(
-          collection(firestore, 'parents'),
-          where('username', '==', emailOrUsername),
-          limit(1),
-        );
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          throw new Error('Username tidak ditemukan');
-        }
-
-        email = querySnapshot.docs[0].data().email;
+      // Email validation - must contain @
+      if (!email.includes('@')) {
+        throw new Error('Format email tidak valid');
       }
 
       const userCredential = await signInWithEmailAndPassword(
@@ -82,6 +79,13 @@ export const authService = {
         email,
         password,
       );
+
+      // Save auth data to AsyncStorage for persistence
+      await saveData(STORAGE_KEYS.AUTH_TOKEN, {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+      });
+
       return userCredential.user;
     } catch (error) {
       console.error('Login Error:', error);
@@ -93,6 +97,9 @@ export const authService = {
   logout: async () => {
     try {
       await signOut(auth);
+      // Clear auth data from AsyncStorage
+      await removeData(STORAGE_KEYS.AUTH_TOKEN);
+      await removeData(STORAGE_KEYS.USER_DATA);
     } catch (error) {
       console.error('Logout Error:', error);
       throw error;
@@ -109,10 +116,49 @@ export const authService = {
     try {
       const docRef = doc(firestore, 'parents', uid);
       const docSnap = await getDoc(docRef);
-      return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+
+      if (docSnap.exists()) {
+        const profile = { id: docSnap.id, ...docSnap.data() };
+        // Save to AsyncStorage for quick access
+        await saveData(STORAGE_KEYS.USER_DATA, profile);
+        return profile;
+      }
+
+      return null;
     } catch (error) {
       console.error('Get Parent Profile Error:', error);
       throw error;
+    }
+  },
+
+  // Get stored auth data
+  getStoredAuth: async () => {
+    try {
+      return await getData(STORAGE_KEYS.AUTH_TOKEN);
+    } catch (error) {
+      console.error('Get Stored Auth Error:', error);
+      return null;
+    }
+  },
+
+  // Get stored user data
+  getStoredUserData: async () => {
+    try {
+      return await getData(STORAGE_KEYS.USER_DATA);
+    } catch (error) {
+      console.error('Get Stored User Data Error:', error);
+      return null;
+    }
+  },
+
+  // Get user ID from storage (for when Firebase auth not yet restored)
+  getUserIdFromStorage: async () => {
+    try {
+      const authData = await getData(STORAGE_KEYS.AUTH_TOKEN);
+      return authData?.uid || null;
+    } catch (error) {
+      console.error('Get User ID From Storage Error:', error);
+      return null;
     }
   },
 };

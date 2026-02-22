@@ -10,15 +10,18 @@
 ## 🚀 Cara Menggunakan
 
 ### 1. Jalankan Development Server
+
 ```bash
 npm start
 ```
 
 ### 2. Buka di Web Browser
+
 - Tekan **W** di terminal, atau
 - Buka manual: http://localhost:8081
 
 ### 3. Edit File
+
 1. Buka file yang ingin diedit (contoh: LoginScreen.js)
 2. Ubah sesuatu (text, warna, style, dll)
 3. **Tekan CTRL+S** untuk save
@@ -29,6 +32,7 @@ npm start
 Coba edit file ini: `src/screens/parent/LoginScreen.js`
 
 Ubah misalnya:
+
 ```javascript
 // SEBELUM
 <Text style={styles.title}>Login Parent</Text>
@@ -50,6 +54,7 @@ Ubah misalnya:
 ## ❌ Apa yang TIDAK Bisa Fast Refresh?
 
 Perlu reload manual (tekan R di terminal):
+
 - Perubahan pada import/export
 - Perubahan pada class components
 - Perubahan pada file di luar src/
@@ -58,11 +63,13 @@ Perlu reload manual (tekan R di terminal):
 ## 🔧 Jika Fast Refresh Tidak Bekerja
 
 1. **Restart server dengan clear cache**:
+
    ```bash
    npm start -- --clear
    ```
 
 2. **Reload manual**:
+
    - Tekan **R** di terminal
    - Atau refresh browser (CTRL+R)
 

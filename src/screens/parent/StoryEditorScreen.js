@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { FONTS, SPACING } from '../../constants/theme';
+import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import ParentHeader from '../../components/ParentHeader';
 import { saveData } from '../../services/storage';
-import { BASE_URL } from '@env';
+import { getCurrentBaseUrl } from '../../services/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,12 +42,53 @@ const StoryEditorScreen = ({ route, navigation }) => {
   // Convert cerita object to array
   const pagesArray = Object.values(storyData.cerita);
   const [editedPages, setEditedPages] = useState(pagesArray);
+  const [editedTitle, setEditedTitle] = useState(
+    storyData.judul || 'Edit Cerita',
+  );
   const [currentPage, setCurrentPage] = useState(0);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [pageImages, setPageImages] = useState(storyData.images || {}); // Track images per page
+  const [hasSaved, setHasSaved] = useState(false);
   const flatListRef = useRef(null);
 
   const totalPages = editedPages.length;
+
+  // Add navigation listener for confirmation before leaving
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', e => {
+      // If already saved, allow leaving
+      if (hasSaved) {
+        return;
+      }
+
+      // Prevent default behavior of leaving the screen
+      e.preventDefault();
+
+      // Prompt the user before leaving the screen
+      Alert.alert(
+        'Konfirmasi',
+        'Apakah anda yakin meninggalkan halaman editor sebelum cerita disimpan?',
+        [
+          { text: 'Batal', style: 'cancel', onPress: () => {} },
+          {
+            text: 'Keluar',
+            style: 'destructive',
+            onPress: () => {
+              try {
+                // Try to dispatch the original action
+                navigation.dispatch(e.data.action);
+              } catch (err) {
+                // Fallback: call goBack if the action isn't handled by any navigator
+                navigation.goBack();
+              }
+            },
+          },
+        ],
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasSaved]);
 
   // Mapping themes to cover images (using lowercase keys to match database)
   const GENRE_COVERS = {
@@ -66,6 +110,7 @@ const StoryEditorScreen = ({ route, navigation }) => {
   };
 
   const goToNextPage = () => {
+    console.log('Current page:', themeData.id);
     if (currentPage < totalPages - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
@@ -89,7 +134,23 @@ const StoryEditorScreen = ({ route, navigation }) => {
     // Auto-save to storage
     const updatedData = {
       ...storyData,
+      judul: editedTitle,
       cerita: newPages.reduce((acc, page, idx) => {
+        acc[idx + 1] = page;
+        return acc;
+      }, {}),
+    };
+    saveData(storageKey, updatedData);
+  };
+
+  const handleTitleChange = text => {
+    setEditedTitle(text);
+
+    // Auto-save to storage
+    const updatedData = {
+      ...storyData,
+      judul: text,
+      cerita: editedPages.reduce((acc, page, idx) => {
         acc[idx + 1] = page;
         return acc;
       }, {}),
@@ -110,7 +171,7 @@ const StoryEditorScreen = ({ route, navigation }) => {
         return;
       }
 
-      const apiUrl = `${BASE_URL}/generate-image`;
+      const apiUrl = `${await getCurrentBaseUrl()}/generate-image`;
       console.log('Calling API:', apiUrl, 'for page:', currentPage + 1);
 
       const response = await fetch(apiUrl, {
@@ -165,10 +226,14 @@ const StoryEditorScreen = ({ route, navigation }) => {
       // Save updated pages to local storage
       const updatedStoryData = {
         ...storyData,
+        judul: editedTitle,
         cerita: editedPages,
         images: pageImages,
       };
       await saveData(storageKey, updatedStoryData);
+
+      // Mark as saved to allow navigation without confirmation
+      setHasSaved(true);
 
       // Navigate to Story Settings Screen
       navigation.navigate('StorySettingsScreen', {
@@ -183,62 +248,72 @@ const StoryEditorScreen = ({ route, navigation }) => {
   };
 
   const renderPage = ({ item, index }) => (
-    <View style={styles.pageContainer}>
-      <View style={styles.pageBackground}>
-        {/* Story Content Card */}
-        <View style={styles.storyContentCard}>
-          {/* Genre Cover Image */}
-          <View style={styles.coverContainer}>
-            {pageImages[index] ? (
-              <Image
-                source={{ uri: pageImages[index] }}
-                style={styles.genreCoverImage}
-                resizeMode="cover"
-              />
-            ) : themeData && GENRE_COVERS[themeData.name || themeData.label] ? (
-              <Image
-                source={GENRE_COVERS[themeData.name || themeData.label]}
-                style={styles.genreCoverImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.emojiIllustration}>
-                {themeData?.emoji || '📖'}
-              </Text>
-            )}
-            {pageImages[index] && (
-              <View style={styles.generatedBadge}>
-                <Text style={styles.generatedBadgeText}>Generated</Text>
-              </View>
-            )}
-          </View>
+    <KeyboardAvoidingView
+      style={styles.pageContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.pageBackground}>
+          {/* Story Content Card */}
+          <View style={styles.storyContentCard}>
+            {/* Genre Cover Image */}
+            <View style={styles.coverContainer}>
+              {pageImages[index] ? (
+                <Image
+                  source={{ uri: pageImages[index] }}
+                  style={styles.genreCoverImage}
+                  resizeMode="cover"
+                />
+              ) : themeData ? (
+                <Image
+                  source={GENRE_COVERS[themeData.id]}
+                  style={styles.genreCoverImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.emojiIllustration}>
+                  {themeData?.emoji || '📖'}
+                </Text>
+              )}
+              {pageImages[index] && (
+                <View style={styles.generatedBadge}>
+                  <Text style={styles.generatedBadgeText}>Generated</Text>
+                </View>
+              )}
+            </View>
 
-          {/* Editable Story Text */}
-          <TextInput
-            style={styles.storyTextInput}
-            value={item}
-            onChangeText={text => handleTextChange(text, index)}
-            multiline
-            textAlignVertical="top"
-            placeholder="Tulis cerita di sini..."
-            placeholderTextColor="#BDBDBD"
-          />
+            {/* Editable Story Text */}
+            <View style={styles.textInputContainer}>
+              <TextInput
+                style={styles.storyTextInput}
+                value={item}
+                onChangeText={text => handleTextChange(text, index)}
+                multiline
+                textAlignVertical="top"
+                placeholder="Tulis cerita di sini..."
+                placeholderTextColor="#BDBDBD"
+              />
+            </View>
 
-          {/* Decorative Elements */}
-          <View style={styles.decorativeDotsTop}>
-            <View
-              style={[styles.decorativeDot, { backgroundColor: '#FFB6C1' }]}
-            />
-            <View
-              style={[styles.decorativeDot, { backgroundColor: '#87CEEB' }]}
-            />
-            <View
-              style={[styles.decorativeDot, { backgroundColor: '#98FB98' }]}
-            />
+            {/* Decorative Elements */}
+            <View style={styles.decorativeDotsTop}>
+              <View
+                style={[styles.decorativeDot, { backgroundColor: '#FFB6C1' }]}
+              />
+              <View
+                style={[styles.decorativeDot, { backgroundColor: '#87CEEB' }]}
+              />
+              <View
+                style={[styles.decorativeDot, { backgroundColor: '#98FB98' }]}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 
   return (
@@ -257,51 +332,49 @@ const StoryEditorScreen = ({ route, navigation }) => {
         imageStyle={styles.footerBackgroundImage}
       />
 
-      {/* Header */}
+      {/* Content Layer - Header Overlay */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={styles.backButtonCircle}>
-            <Text style={styles.backIcon}>←</Text>
+            style={styles.backButton}>
+            <View style={styles.backButtonCircle}>
+              <Image
+                source={require('../../assets/images/icon/left_arrow.png')}
+                style={styles.backIcon}
+              />
+            </View>
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={2}>
-              {storyData.judul || 'Edit Cerita'}
-            </Text>
-            {themeData && (
+            <TextInput
+              style={styles.headerTitleInput}
+              value={editedTitle}
+              onChangeText={handleTitleChange}
+              placeholder="Masukkan judul cerita..."
+              placeholderTextColor="#BDBDBD"
+              multiline
+              numberOfLines={2}
+              textAlign="center"
+            />
+            {themeData && GENRE_ICONS[themeData.id || themeData.label] && (
               <View style={styles.headerGenreRow}>
-                {GENRE_ICONS[themeData.name || themeData.label] && (
-                  <Image
-                    source={GENRE_ICONS[themeData.name || themeData.label]}
-                    style={styles.headerGenreImage}
-                  />
-                )}
+                <Image
+                  source={GENRE_ICONS[themeData.id || themeData.label]}
+                  style={styles.headerGenreImage}
+                />
                 <Text style={styles.headerGenreText}>
-                  {themeData.label || themeData.name}
+                  {themeData.label || themeData.id}
                 </Text>
               </View>
             )}
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>
-                Halaman {currentPage + 1}/{totalPages}
-              </Text>
-            </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.finishButton}
-            onPress={handleSaveAndPublish}>
-            <Image
-              source={require('../../assets/images/icon/accept.png')}
-              style={styles.finishButtonIcon}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerRight} />
         </View>
       </View>
 
-      {/* Content area: pages + indicator */}
+      {/* Content area: pages + indicator (flex to allow footer sticky) */}
       <View style={styles.contentWrapper}>
         {/* Story Pages - Horizontal Slider */}
         <View style={styles.pagesWrapper}>
@@ -329,6 +402,12 @@ const StoryEditorScreen = ({ route, navigation }) => {
           />
         </View>
 
+        <View style={styles.headerBadge}>
+          <Text style={styles.headerBadgeText}>
+            Halaman {currentPage + 1}/{totalPages}
+          </Text>
+        </View>
+
         {/* Page Indicator */}
         {/* <View style={styles.pageIndicatorContainer}>
           {editedPages.map((_, index) => (
@@ -351,7 +430,7 @@ const StoryEditorScreen = ({ route, navigation }) => {
         </View> */}
       </View>
 
-      {/* Footer Controls */}
+      {/* Content Layer - Footer Overlay */}
       <View style={styles.footer}>
         <View style={styles.controlsContainer}>
           {/* Previous Button */}
@@ -363,30 +442,54 @@ const StoryEditorScreen = ({ route, navigation }) => {
             ]}
             onPress={goToPreviousPage}
             disabled={currentPage === 0}>
-            {/* <Image
+            <Image
               source={require('../../assets/images/icon/left_arrow.png')}
               style={styles.navButtonIcon}
-            /> */}
+            />
             <Text style={styles.navButtonText}>Prev</Text>
           </TouchableOpacity>
 
-          {/* Generate Image Button */}
-          <TouchableOpacity
-            style={[styles.controlButton, styles.generateButton]}
-            onPress={handleGenerateImage}
-            disabled={generatingImage}>
-            {generatingImage ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                {/* <Image
-                  source={require('../../assets/images/icon/genre.png')}
-                  style={styles.generateButtonIcon}
-                /> */}
-                <Text style={styles.generateButtonText}>Generate</Text>
-              </>
+          {/* Center Controls */}
+          <View style={styles.centerControls}>
+            {/* Generate Image Button */}
+            {/* <TouchableOpacity
+              style={[
+                styles.controlButton,
+                styles.centerButton,
+                styles.generateButton,
+              ]}
+              onPress={handleGenerateImage}
+              disabled={generatingImage}>
+              {generatingImage ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Image
+                    source={require('../../assets/images/icon/target.png')}
+                    style={styles.centerButtonIcon}
+                  />
+                  <Text style={styles.centerButtonText}>Generate</Text>
+                </>
+              )}
+            </TouchableOpacity> */}
+
+            {/* Save Button - Show only on last page */}
+            {currentPage === totalPages - 1 && (
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  styles.centerButton,
+                  styles.saveButton,
+                ]}
+                onPress={handleSaveAndPublish}>
+                <Image
+                  source={require('../../assets/images/icon/accept.png')}
+                  style={styles.centerButtonIcon}
+                />
+                <Text style={styles.centerButtonText}>Save</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
 
           {/* Next Button */}
           <TouchableOpacity
@@ -397,11 +500,11 @@ const StoryEditorScreen = ({ route, navigation }) => {
             ]}
             onPress={goToNextPage}
             disabled={currentPage === totalPages - 1}>
-            <Text style={styles.navButtonText}>Next</Text>
-            {/* <Image
+            <Image
               source={require('../../assets/images/icon/right_arrow.png')}
               style={styles.navButtonIcon}
-            /> */}
+            />
+            <Text style={styles.navButtonText}>Next</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -461,105 +564,129 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   header: {
-    paddingTop: 50,
-    paddingHorizontal: SPACING.lg,
-    zIndex: 10,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.2,
+    justifyContent: 'center',
+    zIndex: 1,
   },
   headerContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.lg + 8,
+    backgroundColor: 'transparent',
+    height: 'auto',
+  },
+  backButton: {
+    zIndex: 10,
   },
   backButtonCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+    borderColor: COLORS.primary,
   },
   backIcon: {
-    fontSize: 24,
-    fontWeight: FONTS.weights.bold,
-    color: '#E91E63',
+    width: 36,
+    height: 36,
   },
   headerTitleContainer: {
     flex: 1,
-    marginHorizontal: SPACING.md,
+    alignItems: 'center',
+    marginHorizontal: SPACING.sm,
+    marginTop: SPACING.lg,
   },
   headerTitle: {
     fontSize: FONTS.sizes.large,
     fontWeight: FONTS.weights.heavy,
-    color: '#212121',
+    color: COLORS.text,
     textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  headerTitleInput: {
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    minHeight: 45,
   },
   headerGenreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: SPACING.md,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
   },
   headerGenreImage: {
-    width: 16,
-    height: 16,
-    marginRight: 4,
+    width: 34,
+    height: 34,
+    marginRight: SPACING.sm,
   },
   headerGenreText: {
     fontSize: FONTS.sizes.small,
-    color: '#757575',
-    fontWeight: FONTS.weights.medium,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.secondary,
   },
   headerBadge: {
-    backgroundColor: '#E91E63',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
+    textAlign: 'center',
     alignSelf: 'center',
-    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: SPACING.md,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    width: SCREEN_WIDTH * 0.46,
   },
   headerBadgeText: {
-    color: '#FFFFFF',
-    fontSize: FONTS.sizes.tiny,
+    fontSize: FONTS.sizes.small,
     fontWeight: FONTS.weights.bold,
+    color: COLORS.primary,
+    textAlign: 'center',
   },
-  finishButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  finishButtonIcon: {
-    width: 28,
-    height: 28,
+  headerRight: {
+    width: 45,
   },
   contentWrapper: {
-    flex: 1,
-    zIndex: 5,
-    marginTop: -SPACING.xxl,
+    height: SCREEN_HEIGHT * 0.6,
   },
   pagesWrapper: {
-    flex: 1,
+    height: SCREEN_HEIGHT * 0.65,
   },
   flatListStyle: {
     flex: 1,
   },
   pageContainer: {
     width: SCREEN_WIDTH,
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
+    paddingBottom: 150,
   },
   pageBackground: {
     width: '100%',
@@ -568,10 +695,11 @@ const styles = StyleSheet.create({
   storyContentCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: SPACING.xl,
+    paddingVertical: SPACING.md + 4,
+    paddingHorizontal: SPACING.lg,
     width: '100%',
     marginTop: SPACING.lg,
-    minHeight: SCREEN_HEIGHT * 0.66,
+    minHeight: SCREEN_HEIGHT * 0.6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -615,14 +743,24 @@ const styles = StyleSheet.create({
   emojiIllustration: {
     fontSize: 80,
   },
+  textInputContainer: {
+    flex: 1,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    padding: SPACING.md,
+    minHeight: 250,
+  },
   storyTextInput: {
-    fontSize: FONTS.sizes.large,
-    lineHeight: 32,
+    fontSize: FONTS.sizes.medium,
+    lineHeight: 28,
     color: '#212121',
     fontWeight: FONTS.weights.medium,
     textAlign: 'justify',
     flex: 1,
-    minHeight: 200,
+    minHeight: 180,
   },
   decorativeDotsTop: {
     position: 'absolute',
@@ -656,60 +794,85 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   footer: {
-    paddingBottom: 30,
-    paddingHorizontal: SPACING.lg,
-    zIndex: 10,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 120,
+    zIndex: 1,
   },
   controlsContainer: {
+    width: '100%',
+    height: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    backgroundColor: 'transparent',
   },
   controlButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 3,
+    borderColor: COLORS.white,
   },
   navButton: {
-    flex: 1,
-    maxWidth: 100,
+    flexDirection: 'row',
+    paddingVertical: SPACING.sm - 2,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 90,
   },
   navButtonIcon: {
-    width: 20,
-    height: 20,
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
   },
   navButtonText: {
-    fontSize: FONTS.sizes.smal,
+    fontSize: FONTS.sizes.small,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.white,
+  },
+  centerControls: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    alignItems: 'center',
+  },
+  centerButton: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.secondary,
+    minWidth: 75,
+  },
+  centerButtonIcon: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+    marginBottom: 2,
+  },
+  centerButtonText: {
+    fontSize: FONTS.sizes.tiny,
     fontWeight: FONTS.weights.bold,
-    color: '#E91E63',
+    color: COLORS.white,
   },
   generateButton: {
-    flex: 2,
-    backgroundColor: '#E91E63',
-    maxWidth: 150,
+    backgroundColor: COLORS.purple,
   },
-  generateButtonIcon: {
-    width: 20,
-    height: 20,
-  },
-  generateButtonText: {
-    fontSize: FONTS.sizes.small,
-    fontWeight: FONTS.weights.bold,
-    color: '#FFFFFF',
+  saveButton: {
+    backgroundColor: '#4CAF50',
   },
   controlButtonDisabled: {
-    opacity: 0.3,
+    backgroundColor: '#E0E0E0',
+    opacity: 0.5,
   },
 });
 

@@ -7,16 +7,19 @@ Fast Refresh adalah fitur React Native yang memungkinkan perubahan kode langsung
 ## ✅ Konfigurasi yang Sudah Dibuat
 
 ### 1. Metro Config (`metro.config.js`)
+
 - Mengaktifkan Fast Refresh
 - Menonaktifkan cache untuk hot reload yang lebih baik
 - Konfigurasi transformer untuk JSX
 
 ### 2. VS Code Settings (`.vscode/settings.json`)
+
 - Auto-save setelah 1 detik
 - Format on save
 - Auto import updates
 
 ### 3. App.js
+
 - Menambahkan DEV mode detection
 - Logging untuk Fast Refresh
 
@@ -57,6 +60,7 @@ npm run web
 - Perubahan pada export default
 
 **Contoh:**
+
 ```javascript
 // SEBELUM
 export default function HomeScreen() {
@@ -80,6 +84,7 @@ export default function HomeScreen() {
 - Perubahan pada dependencies
 
 **Contoh yang perlu full reload:**
+
 ```javascript
 // Menambah export baru
 export const newFunction = () => {}; // ❌ Perlu reload
@@ -93,6 +98,7 @@ class MyComponent extends React.Component {} // ❌ Perlu reload
 ### Fast Refresh Tidak Bekerja?
 
 1. **Restart Metro Bundler**:
+
    ```bash
    # Tekan CTRL+C di terminal
    # Kemudian jalankan ulang
@@ -100,18 +106,20 @@ class MyComponent extends React.Component {} // ❌ Perlu reload
    ```
 
 2. **Cek Console Browser/Expo**:
+
    - Buka Developer Tools (F12) di browser
    - Lihat apakah ada error
 
 3. **Pastikan Component Diekspor dengan Benar**:
+
    ```javascript
    // ✅ BENAR
    export default function MyScreen() {}
-   
+
    // ✅ BENAR
    function MyScreen() {}
    export default MyScreen;
-   
+
    // ❌ SALAH (tidak akan Fast Refresh)
    const MyScreen = () => {}
    module.exports = MyScreen;
@@ -126,6 +134,7 @@ class MyComponent extends React.Component {} // ❌ Perlu reload
 ### Error "Fast Refresh had to perform a full reload"
 
 Ini normal terjadi jika Anda:
+
 - Mengubah export/import statements
 - Menambah/menghapus hooks
 - Mengubah class components
@@ -135,6 +144,7 @@ Ini normal terjadi jika Anda:
 ## 📱 Best Practices
 
 ### 1. Gunakan Function Components
+
 ```javascript
 // ✅ RECOMMENDED - Fast Refresh friendly
 export default function HomeScreen() {
@@ -150,19 +160,25 @@ export default class HomeScreen extends Component {
 ```
 
 ### 2. Export Default di Akhir File
+
 ```javascript
 // ✅ RECOMMENDED
 function HomeScreen() {
-  return <View><Text>Hello</Text></View>;
+  return (
+    <View>
+      <Text>Hello</Text>
+    </View>
+  );
 }
 
 export default HomeScreen;
 ```
 
 ### 3. Pisahkan Logic dari Component
+
 ```javascript
 // ✅ RECOMMENDED - Helper functions di luar component
-const calculateScore = (data) => {
+const calculateScore = data => {
   return data.reduce((sum, item) => sum + item.score, 0);
 };
 
@@ -173,10 +189,15 @@ export default function ScoreScreen() {
 ```
 
 ### 4. Gunakan Named Exports untuk Utilities
+
 ```javascript
 // utils/helpers.js
-export const formatDate = (date) => { /* ... */ };
-export const validateEmail = (email) => { /* ... */ };
+export const formatDate = date => {
+  /* ... */
+};
+export const validateEmail = email => {
+  /* ... */
+};
 
 // Perubahan di file ini memerlukan reload,
 // tapi jika diubah di component akan Fast Refresh
@@ -194,6 +215,7 @@ export const validateEmail = (email) => { /* ... */ };
 ## 🔍 Monitoring Fast Refresh
 
 Buka Console di browser/Expo untuk melihat:
+
 ```
 Fast Refresh enabled for App.js
 [Fast Refresh] Performing refresh...
@@ -203,15 +225,18 @@ Fast Refresh enabled for App.js
 ## ⌨️ Keyboard Shortcuts
 
 ### VS Code:
+
 - `CTRL+S`: Save file (trigger Fast Refresh)
 - `CTRL+SHIFT+P` → "Reload Window": Reload VS Code
 
 ### Browser:
+
 - `CTRL+R`: Force reload (jika Fast Refresh gagal)
 - `F12`: Open Developer Tools
 - `CTRL+SHIFT+R`: Hard reload (clear cache)
 
 ### Expo/Metro:
+
 - Press `r`: Reload app
 - Press `d`: Open dev menu
 - Press `c`: Clear cache and restart
@@ -225,17 +250,22 @@ Fast Refresh enabled for App.js
 ## 🐛 Known Issues
 
 ### Issue: "Perubahan tidak terdeteksi"
-**Solusi**: 
+
+**Solusi**:
+
 - Pastikan file sudah ter-save (`CTRL+S`)
 - Check auto-save is enabled
 - Restart Metro: `npm start -- --reset-cache`
 
 ### Issue: "State hilang setelah save"
+
 **Penyebab**: Kemungkinan mengubah export/import atau hooks
 **Solusi**: Ini expected behavior, state akan reset
 
 ### Issue: "Browser tidak auto-reload"
+
 **Solusi**:
+
 1. Cek console untuk errors
 2. Restart Metro Bundler
 3. Clear browser cache
@@ -250,6 +280,7 @@ Fast Refresh enabled for App.js
 ## ✨ Summary
 
 Fast Refresh sudah aktif! Sekarang Anda bisa:
+
 - ✅ Edit component dan lihat perubahan instant
 - ✅ State tetap terjaga (tidak kembali ke awal)
 - ✅ Auto-save setiap 1 detik
