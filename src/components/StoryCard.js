@@ -4,7 +4,14 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { TouchableOpacity, Text, StyleSheet, View, Platform, Image } from 'react-native';
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  View,
+  Platform,
+  Image,
+} from 'react-native';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 
 // Mapping genre to cover images
@@ -35,8 +42,8 @@ export const StoryCard = ({ story, onPress }) => {
   };
 
   // Get cover image based on genre
-  console.log('Story cover image:', story.genre);
-  const coverSource = story.coverImage || GENRE_COVERS[story.genre] || GENRE_COVERS.keluarga;
+  const coverSource =
+    story.coverImage || GENRE_COVERS[story.genre] || GENRE_COVERS.keluarga;
 
   return (
     <TouchableOpacity
@@ -46,11 +53,11 @@ export const StoryCard = ({ story, onPress }) => {
       activeOpacity={0.9}>
       <Animated.View style={[styles.card, animatedStyle]}>
         <View style={styles.coverContainer}>
-            <Image 
-              source={coverSource} 
-              style={styles.coverImageStyle}
-              resizeMode="cover"
-            />
+          <Image
+            source={coverSource}
+            style={styles.coverImageStyle}
+            resizeMode="cover"
+          />
         </View>
         <View style={styles.contentContainer}>
           <Text style={styles.title} numberOfLines={2}>
@@ -63,7 +70,9 @@ export const StoryCard = ({ story, onPress }) => {
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaIcon}></Text>
-              <Text style={styles.metaText}>{story.estimatedDuration || story.duration} mnt</Text>
+              <Text style={styles.metaText}>
+                {story.estimatedDuration || story.duration} mnt
+              </Text>
             </View>
           </View>
         </View>

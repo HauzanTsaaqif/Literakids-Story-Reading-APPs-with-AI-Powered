@@ -254,6 +254,32 @@ const StorySettingsScreen = ({ route, navigation }) => {
         ? Object.values(storyData.images)
         : [];
 
+      // --- AWAL LOGIKA KALKULASI UMUR BERDASARKAN JUMLAH KATA ---
+
+      // 1. Hitung total kata dari seluruh elemen di contentArray
+      const totalWords = contentArray.reduce((total, text) => {
+        // Hapus spasi berlebih di awal/akhir, lalu pecah berdasarkan spasi
+        const words = text.trim().split(/\s+/);
+        // Tambahkan jumlah kata (jika string kosong, anggap 0 kata)
+        return total + (words[0] === '' ? 0 : words.length);
+      }, 0);
+
+      // 2. Tentukan umur berdasarkan aturan:
+      // - Jika <= 500 kata = Usia 3
+      // - Setiap kelipatan 50 kata di atas 500 akan menambah 1 tahun
+      let calculatedAge = 3;
+      if (totalWords > 500) {
+        // Menggunakan Math.ceil agar sisa berapapun langsung masuk ke rentang umur berikutnya
+        // Contoh: 501 - 550 = umur 4. 551 - 600 = umur 5.
+        calculatedAge = 3 + Math.ceil((totalWords - 500) / 50);
+      }
+
+      console.log(
+        `Total words: ${totalWords}, Calculated Age: ${calculatedAge}`,
+      );
+
+      // --- AKHIR LOGIKA KALKULASI ---
+
       const bookData = {
         title: storyTitle,
         content: contentArray,
@@ -261,7 +287,7 @@ const StorySettingsScreen = ({ route, navigation }) => {
         genre: themeData?.id || themeData?.name || 'petualangan',
         moralValue: moralData?.label || moralData?.name || '',
         coverEmoji: '📖',
-        ageRange: '6-9',
+        ageRange: calculatedAge.toString(), // <-- Menggunakan umur yang sudah dihitung
         estimatedDuration: Math.ceil(contentArray.length * 1.5),
         isGlobal: false,
         parentId: user.uid,

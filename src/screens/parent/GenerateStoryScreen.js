@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  TextInput,
 } from 'react-native';
 import { FONTS, SPACING } from '../../constants/theme';
 import {
@@ -91,19 +92,66 @@ const MORAL_VALUES = [
   },
 ];
 
-const WORD_COUNTS = [300, 400, 500, 600, 700, 800];
-
 const GenerateStoryScreen = ({ navigation }) => {
   const [selectedTheme, setSelectedTheme] = useState(null);
   const [selectedMoral, setSelectedMoral] = useState(null);
-  const [selectedWordCount, setSelectedWordCount] = useState(300);
+  const [selectedWordCount, setSelectedWordCount] = useState('500'); // Disimpan sebagai string untuk TextInput
+  const [isEditingWordCount, setIsEditingWordCount] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  // Fungsi Kalkulasi Umur
+  const calculateAge = birthDateString => {
+    if (!birthDateString) return 3; // Default umur jika data kosong
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Fungsi Kalkulasi Rekomendasi Kata Berdasarkan Umur
+  const calculateRecommendedWords = age => {
+    if (age <= 3) return 500;
+    if (age === 4) return 550;
+    if (age === 5) return 600;
+    return 650; // Umur 6 tahun ke atas
+  };
+
+  useEffect(() => {
+    const fetchParentProfileAndSetWords = async () => {
+      try {
+        const user = authService.getCurrentUser();
+        if (user) {
+          const profile = await authService.getParentProfile(user.uid);
+          if (profile && profile.birthDate) {
+            const childAge = calculateAge(profile.birthDate);
+            const recommendedWords = calculateRecommendedWords(childAge);
+            setSelectedWordCount(recommendedWords.toString());
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile for word calculation:', error);
+        setSelectedWordCount('500'); // Fallback default
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchParentProfileAndSetWords();
+  }, []);
 
   const handleGenerate = async () => {
     if (!selectedTheme || !selectedMoral) {
       Alert.alert('Perhatian', 'Pilih tema dan nilai moral terlebih dahulu');
       return;
     }
+
+    // Validasi input angka jika dikosongkan user
+    const finalWordCount = parseInt(selectedWordCount, 10) || 500;
 
     setGenerating(true);
 
@@ -127,7 +175,7 @@ const GenerateStoryScreen = ({ navigation }) => {
         body: JSON.stringify({
           moral: selectedMoral.label,
           theme: selectedTheme.label,
-          word: selectedWordCount,
+          word: finalWordCount,
         }),
       });
 
@@ -152,7 +200,6 @@ const GenerateStoryScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Generate Story Error:', error);
 
-      // Check if error is network/timeout related
       const isNetworkError =
         error.message?.toLowerCase().includes('network') ||
         error.message?.toLowerCase().includes('timeout') ||
@@ -174,7 +221,6 @@ const GenerateStoryScreen = ({ navigation }) => {
               text: 'Retry',
               onPress: () => {
                 setGenerating(false);
-                // Retry after a short delay
                 setTimeout(() => handleGenerate(), 300);
               },
             },
@@ -202,9 +248,8 @@ const GenerateStoryScreen = ({ navigation }) => {
           { cancelable: false },
         );
       }
-      return; // Don't execute finally block, buttons will handle it
+      return;
     } finally {
-      // Only set to false if we didn't show retry dialog
       if (!generating) return;
       setGenerating(false);
     }
@@ -317,7 +362,7 @@ const GenerateStoryScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Word Count Selection */}
+        {/* Word Count Selection (NEW UI) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Image
@@ -326,38 +371,65 @@ const GenerateStoryScreen = ({ navigation }) => {
             />
             <View style={styles.sectionHeaderText}>
               <Text style={styles.sectionTitle}>Panjang Cerita</Text>
-              <Text style={styles.sectionSubtitle}>
-                Pilih jumlah kata maksimal
-              </Text>
+              <Text style={styles.sectionSubtitle}>Berdasarkan usia anak</Text>
             </View>
           </View>
 
-          <View style={styles.wordCountGrid}>
-            {WORD_COUNTS.map(count => (
-              <TouchableOpacity
-                key={count}
-                style={[
-                  styles.wordCountButton,
-                  selectedWordCount === count && styles.wordCountButtonActive,
-                ]}
-                onPress={() => setSelectedWordCount(count)}>
-                <Text
+          {isLoadingProfile ? (
+            <ActivityIndicator
+              size="small"
+              color="#E91E63"
+              style={{ marginVertical: SPACING.lg }}
+            />
+          ) : (
+            <View>
+              <View style={styles.wordInputContainer}>
+                <View
                   style={[
-                    styles.wordCountText,
-                    selectedWordCount === count && styles.wordCountTextActive,
+                    styles.inputWrapper,
+                    isEditingWordCount && styles.inputWrapperActive,
                   ]}>
-                  {count}
-                </Text>
-                <Text
-                  style={[
-                    styles.wordCountLabel,
-                    selectedWordCount === count && styles.wordCountLabelActive,
-                  ]}>
-                  kata
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <TextInput
+                    style={[
+                      styles.wordInput,
+                      !isEditingWordCount && styles.wordInputDisabled,
+                    ]}
+                    value={selectedWordCount}
+                    onChangeText={text =>
+                      setSelectedWordCount(text.replace(/[^0-9]/g, ''))
+                    } // Hanya menerima angka
+                    keyboardType="numeric"
+                    editable={isEditingWordCount}
+                    maxLength={4}
+                  />
+                  <Text style={styles.wordInputSuffix}>kata</Text>
+                </View>
+
+                {isEditingWordCount ? (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => setIsEditingWordCount(false)}>
+                    <Text style={styles.actionButtonText}>Simpan</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.actionButtonOutline}
+                    onPress={() => setIsEditingWordCount(true)}>
+                    <Text style={styles.actionButtonTextOutline}>Edit</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Recommendation Badge shown only when not editing */}
+              {!isEditingWordCount && (
+                <View style={styles.recommendationBadge}>
+                  <Text style={styles.recommendationText}>
+                    ✨ Direkomendasikan khusus untuk usia anak Anda
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Preview */}
@@ -405,7 +477,7 @@ const GenerateStoryScreen = ({ navigation }) => {
                   <Text style={styles.previewStatIcon}>📖</Text>
                   <Text style={styles.previewStatLabel}>Panjang</Text>
                   <Text style={styles.previewStatValue}>
-                    ~{selectedWordCount} kata
+                    ~{selectedWordCount || 500} kata
                   </Text>
                 </View>
                 <View style={styles.previewStatDivider} />
@@ -413,7 +485,7 @@ const GenerateStoryScreen = ({ navigation }) => {
                   <Text style={styles.previewStatIcon}>⏱️</Text>
                   <Text style={styles.previewStatLabel}>Estimasi Baca</Text>
                   <Text style={styles.previewStatValue}>
-                    {Math.ceil(selectedWordCount / 50)} menit
+                    {Math.ceil((parseInt(selectedWordCount) || 500) / 50)} menit
                   </Text>
                 </View>
               </View>
@@ -549,13 +621,6 @@ const styles = StyleSheet.create({
   optionIconActive: {
     transform: [{ scale: 1.1 }],
   },
-  optionEmoji: {
-    fontSize: 44,
-    marginBottom: SPACING.sm,
-  },
-  optionEmojiActive: {
-    transform: [{ scale: 1.15 }],
-  },
   optionLabel: {
     fontSize: FONTS.sizes.small - 2,
     color: '#424242',
@@ -567,47 +632,100 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.bold,
     fontSize: FONTS.sizes.small - 2,
   },
-  wordCountGrid: {
+
+  /* NEW STYLES FOR WORD COUNT INPUT */
+  wordInputContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: SPACING.md,
   },
-  wordCountButton: {
-    width: '46%',
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
-    paddingVertical: SPACING.lg,
-    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#E0E0E0',
+    paddingHorizontal: SPACING.lg,
+    height: 60,
   },
-  wordCountButtonActive: {
-    backgroundColor: '#E91E63',
+  inputWrapperActive: {
+    backgroundColor: '#FFFFFF',
     borderColor: '#E91E63',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  wordInput: {
+    flex: 1,
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
+    color: '#212121',
+    padding: 0,
+  },
+  wordInputDisabled: {
+    color: '#757575',
+  },
+  wordInputSuffix: {
+    fontSize: FONTS.sizes.medium,
+    color: '#757575',
+    fontWeight: FONTS.weights.medium,
+    marginLeft: SPACING.sm,
+  },
+  actionButton: {
+    backgroundColor: '#E91E63',
+    paddingHorizontal: SPACING.lg,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
     shadowColor: '#E91E63',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-    transform: [{ scale: 1.05 }],
   },
-  wordCountText: {
-    fontSize: FONTS.sizes.xlarge,
-    fontWeight: FONTS.weights.heavy,
-    color: '#212121',
-  },
-  wordCountTextActive: {
+  actionButtonText: {
     color: '#FFFFFF',
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.bold,
   },
-  wordCountLabel: {
+  actionButtonOutline: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: SPACING.lg,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E91E63',
+  },
+  actionButtonTextOutline: {
+    color: '#E91E63',
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.bold,
+  },
+  recommendationBadge: {
+    marginTop: SPACING.md,
+    backgroundColor: '#FFF0F5',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#F8BBD0',
+  },
+  recommendationText: {
     fontSize: FONTS.sizes.tiny,
-    color: '#757575',
-    fontWeight: FONTS.weights.medium,
-    marginTop: 2,
+    color: '#D81B60',
+    fontWeight: FONTS.weights.bold,
   },
-  wordCountLabelActive: {
-    color: '#FFFFFF',
-  },
+  /* END NEW STYLES */
+
   previewCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: SPACING.lg,
@@ -635,17 +753,6 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.heavy,
     color: '#FFFFFF',
     letterSpacing: 0.3,
-  },
-  previewBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: 20,
-  },
-  previewBadgeText: {
-    color: '#FFFFFF',
-    fontSize: FONTS.sizes.tiny,
-    fontWeight: FONTS.weights.bold,
   },
   previewContent: {
     padding: SPACING.xl,
@@ -676,9 +783,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     resizeMode: 'contain',
-  },
-  previewEmojiLarge: {
-    fontSize: 32,
   },
   previewItemText: {
     flex: 1,

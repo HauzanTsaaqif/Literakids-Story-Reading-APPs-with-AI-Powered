@@ -452,7 +452,7 @@ const StoryEditorScreen = ({ route, navigation }) => {
           {/* Center Controls */}
           <View style={styles.centerControls}>
             {/* Generate Image Button */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               style={[
                 styles.controlButton,
                 styles.centerButton,
@@ -471,7 +471,7 @@ const StoryEditorScreen = ({ route, navigation }) => {
                   <Text style={styles.centerButtonText}>Generate</Text>
                 </>
               )}
-            </TouchableOpacity> */}
+            </TouchableOpacity>
 
             {/* Save Button - Show only on last page */}
             {currentPage === totalPages - 1 && (

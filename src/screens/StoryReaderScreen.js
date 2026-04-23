@@ -11,6 +11,8 @@ import {
   ImageBackground,
   Image,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import Animated, {
@@ -20,14 +22,26 @@ import Animated, {
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
-import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { feedbackService } from '../services/feedbackService';
+import { auth } from '../config/firebase';
 
+import { COLORS, FONTS, SPACING } from '../constants/theme';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const StoryReaderScreen = ({ route, navigation }) => {
   const { story } = route.params || {};
 
-  // Validasi story
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+
+  const [visualScore, setVisualScore] = useState(null);
+  const [cognitiveScore, setCognitiveScore] = useState(null);
+  const [engagementScore, setEngagementScore] = useState(null);
+
+  const currentParentId = auth.currentUser?.uid;
+  const masterBookId = story.id || story.masterBookId;
+
   if (!story || !story.content || !Array.isArray(story.content)) {
     return (
       <View style={styles.errorContainer}>
@@ -215,6 +229,46 @@ const StoryReaderScreen = ({ route, navigation }) => {
             story.audioUrl,
         );
       }
+    }
+  };
+
+  const submitFeedback = async () => {
+    if (!visualScore || !cognitiveScore || engagementScore === null) {
+      Alert.alert(
+        'Tunggu Dulu!',
+        'Yuk isi semua penilaiannya dengan memilih emoji.',
+      );
+      return;
+    }
+
+    if (!currentParentId || !masterBookId) {
+      Alert.alert('Error', 'Data parent atau buku tidak valid.');
+      return;
+    }
+
+    setIsSubmittingFeedback(true);
+    try {
+      await feedbackService.createFeedback(currentParentId, masterBookId, {
+        visualAppealScore: visualScore,
+        cognitiveLoadScore: cognitiveScore,
+        engagementScore: engagementScore,
+      });
+
+      setHasSubmittedFeedback(true);
+      setShowFeedbackModal(false);
+      Alert.alert('Terima Kasih!', 'Penilaianmu sudah disimpan.', [
+        { text: 'Selesai', onPress: () => navigation.goBack() },
+      ]);
+    } catch (error) {
+      // Tangani error jika user sudah pernah memberi feedback
+      if (error.message.includes('sudah ada')) {
+        Alert.alert('Oops!', 'Kamu sudah pernah menilai buku ini sebelumnya.');
+        setShowFeedbackModal(false);
+      } else {
+        Alert.alert('Error', 'Gagal mengirim penilaian. Coba lagi nanti.');
+      }
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -497,22 +551,151 @@ const StoryReaderScreen = ({ route, navigation }) => {
           </View>
 
           {/* Next Button */}
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              styles.navButton,
-              currentPage === totalPages - 1 && styles.controlButtonDisabled,
-            ]}
-            onPress={goToNextPage}
-            disabled={currentPage === totalPages - 1}>
-            <Image
-              source={require('../assets/images/icon/right_arrow.png')}
-              style={styles.navButtonIcon}
-            />
-            <Text style={styles.navButtonText}>Next</Text>
-          </TouchableOpacity>
+          {currentPage === totalPages - 1 ? (
+            <TouchableOpacity
+              style={[
+                styles.controlButton,
+                styles.navButton,
+                { backgroundColor: COLORS.orange },
+              ]}
+              onPress={() => setShowFeedbackModal(true)}
+              disabled={hasSubmittedFeedback}>
+              <Image
+                source={require('../assets/images/icon/star.png')}
+                style={styles.navButtonIcon}
+              />
+              <Text style={styles.navButtonText}>Nilai Cerita</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.controlButton,
+                styles.navButton,
+                currentPage === totalPages - 1 && styles.controlButtonDisabled,
+              ]}
+              onPress={goToNextPage}
+              disabled={currentPage === totalPages - 1}>
+              <Image
+                source={require('../assets/images/icon/right_arrow.png')}
+                style={styles.navButtonIcon}
+              />
+              <Text style={styles.navButtonText}>Next</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFeedbackModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeModalButton}
+              onPress={() => setShowFeedbackModal(false)}>
+              <Text style={styles.closeModalText}>X</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>Bagaimana Ceritanya?</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* 1. Visual Appeal */}
+              <View style={styles.questionContainer}>
+                <Text style={styles.questionText}>
+                  Bagaimana gambar-gambar di cerita ini, suka nggak?
+                </Text>
+                <View style={styles.emojiRow}>
+                  {[1, 2, 3, 4, 5].map(score => {
+                    const emojis = ['😡', '🙁', '😐', '🙂', '😍'];
+                    return (
+                      <TouchableOpacity
+                        key={`vis-${score}`}
+                        onPress={() => setVisualScore(score)}
+                        style={[
+                          styles.emojiButton,
+                          visualScore === score && styles.emojiActive,
+                        ]}>
+                        <Text style={styles.emojiIcon}>
+                          {emojis[score - 1]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* 2. Cognitive Load */}
+              <View style={styles.questionContainer}>
+                <Text style={styles.questionText}>
+                  Ceritanya seru atau susah dibaca?
+                </Text>
+                <View style={styles.emojiRow}>
+                  {[1, 2, 3, 4, 5].map(score => {
+                    // 1 = Susah/Bingung, 5 = Gampang/Seru
+                    const emojis = ['🤯', '😕', '😐', '🙂', '🤩'];
+                    return (
+                      <TouchableOpacity
+                        key={`cog-${score}`}
+                        onPress={() => setCognitiveScore(score)}
+                        style={[
+                          styles.emojiButton,
+                          cognitiveScore === score && styles.emojiActive,
+                        ]}>
+                        <Text style={styles.emojiIcon}>
+                          {emojis[score - 1]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* 3. Engagement (Again-Again) */}
+              <View style={styles.questionContainer}>
+                <Text style={styles.questionText}>
+                  Besok mau baca cerita pakai aplikasi ini lagi nggak?
+                </Text>
+                <View style={styles.emojiRow}>
+                  {[0, 1, 2].map(score => {
+                    const emojis = ['👎\nNggak', '🤔\nMungkin', '👍\nMau!'];
+                    return (
+                      <TouchableOpacity
+                        key={`eng-${score}`}
+                        onPress={() => setEngagementScore(score)}
+                        style={[
+                          styles.emojiButtonLarge,
+                          engagementScore === score && styles.emojiActiveLarge,
+                        ]}>
+                        <Text style={styles.emojiIconLarge}>
+                          {emojis[score]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[
+                  styles.submitFeedbackButton,
+                  isSubmittingFeedback && { opacity: 0.7 },
+                ]}
+                onPress={submitFeedback}
+                disabled={isSubmittingFeedback}>
+                {isSubmittingFeedback ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.submitFeedbackText}>Kirim Penilaian</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -864,6 +1047,108 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xlarge,
     color: COLORS.textLight,
     marginBottom: SPACING.xl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '95%',
+    maxHeight: '80%',
+    backgroundColor: COLORS.white,
+    borderRadius: 30,
+    padding: SPACING.sm,
+    borderWidth: 4,
+    borderColor: '#FFE5CC',
+    elevation: 10,
+  },
+  closeModalButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#FFE5CC',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  modalTitle: {
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.primary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  questionContainer: {
+    marginBottom: SPACING.lg,
+    backgroundColor: '#FFF8F0',
+    padding: SPACING.md,
+    borderRadius: 20,
+  },
+  questionText: {
+    fontSize: FONTS.sizes.medium,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  emojiButton: {
+    padding: 5,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  emojiActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFE5CC',
+  },
+  emojiIcon: {
+    fontSize: 32,
+  },
+  emojiButtonLarge: {
+    padding: 10,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+  },
+  emojiActiveLarge: {
+    borderColor: COLORS.secondary,
+    backgroundColor: '#E6F3FF',
+  },
+  emojiIconLarge: {
+    fontSize: 24,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  submitFeedbackButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  submitFeedbackText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
   },
 });
 
