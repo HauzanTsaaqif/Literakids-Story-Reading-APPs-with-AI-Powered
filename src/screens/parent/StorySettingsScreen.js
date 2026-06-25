@@ -10,11 +10,16 @@ import {
   ActivityIndicator,
   Modal,
   Image,
+  ImageBackground,
+  Dimensions,
 } from 'react-native';
 import { Audio } from 'expo-av';
-import { FONTS, SPACING } from '../../constants/theme';
+import { COLORS, FONTS, SPACING } from '../../constants/theme';
+import { CommonActions } from '@react-navigation/native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import ParentHeader from '../../components/ParentHeader';
-import { BASE_URL } from '@env';
+import { getCurrentBaseUrl } from '../../services/api';
 import { authService, booksService } from '../../services/firebaseService';
 import {
   getFirestore,
@@ -94,8 +99,9 @@ const StorySettingsScreen = ({ route, navigation }) => {
         Alert.alert('Error', 'Cerita tidak ditemukan');
         return;
       }
+      const baseUrl = await getCurrentBaseUrl();
 
-      const apiUrl = `${BASE_URL}/generate-speech`;
+      const apiUrl = `${baseUrl}/generate-speech`;
       console.log('Calling API:', apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -227,6 +233,8 @@ const StorySettingsScreen = ({ route, navigation }) => {
     setSaving(true);
 
     try {
+      const rootNavigation = navigation.getParent() || navigation;
+
       const user = authService.getCurrentUser();
       if (!user) {
         Alert.alert('Error', 'Sesi berakhir, silakan login kembali');
@@ -246,6 +254,32 @@ const StorySettingsScreen = ({ route, navigation }) => {
         ? Object.values(storyData.images)
         : [];
 
+      // --- AWAL LOGIKA KALKULASI UMUR BERDASARKAN JUMLAH KATA ---
+
+      // 1. Hitung total kata dari seluruh elemen di contentArray
+      const totalWords = contentArray.reduce((total, text) => {
+        // Hapus spasi berlebih di awal/akhir, lalu pecah berdasarkan spasi
+        const words = text.trim().split(/\s+/);
+        // Tambahkan jumlah kata (jika string kosong, anggap 0 kata)
+        return total + (words[0] === '' ? 0 : words.length);
+      }, 0);
+
+      // 2. Tentukan umur berdasarkan aturan:
+      // - Jika <= 500 kata = Usia 3
+      // - Setiap kelipatan 50 kata di atas 500 akan menambah 1 tahun
+      let calculatedAge = 3;
+      if (totalWords > 500) {
+        // Menggunakan Math.ceil agar sisa berapapun langsung masuk ke rentang umur berikutnya
+        // Contoh: 501 - 550 = umur 4. 551 - 600 = umur 5.
+        calculatedAge = 3 + Math.ceil((totalWords - 500) / 50);
+      }
+
+      console.log(
+        `Total words: ${totalWords}, Calculated Age: ${calculatedAge}`,
+      );
+
+      // --- AKHIR LOGIKA KALKULASI ---
+
       const bookData = {
         title: storyTitle,
         content: contentArray,
@@ -253,7 +287,7 @@ const StorySettingsScreen = ({ route, navigation }) => {
         genre: themeData?.id || themeData?.name || 'petualangan',
         moralValue: moralData?.label || moralData?.name || '',
         coverEmoji: '📖',
-        ageRange: '6-9',
+        ageRange: calculatedAge.toString(), // <-- Menggunakan umur yang sudah dihitung
         estimatedDuration: Math.ceil(contentArray.length * 1.5),
         isGlobal: false,
         parentId: user.uid,
@@ -267,16 +301,25 @@ const StorySettingsScreen = ({ route, navigation }) => {
           ...bookData,
           updatedAt: serverTimestamp(),
         });
-        console.log('✅ Book updated in masterBooks:', bookId);
+        console.log('Book updated in masterBooks:', bookId);
 
-        Alert.alert('Berhasil! 🎉', 'Perubahan cerita berhasil disimpan', [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate('DashboardScreen');
-            },
-          },
-        ]);
+        Alert.alert('Berhasil!', 'Perubahan cerita berhasil disimpan');
+
+        rootNavigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'ParentAdmin',
+                // Provide nested state so the ParentAdmin tab navigator opens on BookList
+                state: {
+                  index: 0,
+                  routes: [{ name: 'BookList' }],
+                },
+              },
+            ],
+          }),
+        );
       } else {
         // Create new book
         const newBookId = `custom_${Date.now()}`;
@@ -284,7 +327,7 @@ const StorySettingsScreen = ({ route, navigation }) => {
           ...bookData,
           createdAt: serverTimestamp(),
         });
-        console.log('✅ Book saved to masterBooks:', newBookId);
+        console.log('Book saved to masterBooks:', newBookId);
 
         // Save to parentBooks
         const parentBookId = `${user.uid}_${newBookId}`;
@@ -298,19 +341,27 @@ const StorySettingsScreen = ({ route, navigation }) => {
           doc(firestore, 'parentBooks', parentBookId),
           parentBookData,
         );
-        console.log('✅ Book linked to parentBooks:', parentBookId);
+        console.log('Book linked to parentBooks:', parentBookId);
 
         Alert.alert(
-          'Berhasil! 🎉',
+          'Berhasil!',
           'Cerita berhasil disimpan dan dapat dilihat di daftar buku',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('DashboardScreen');
+        );
+
+        rootNavigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'ParentAdmin',
+                // Provide nested state so the ParentAdmin tab navigator opens on BookList
+                state: {
+                  index: 0,
+                  routes: [{ name: 'BookList' }],
+                },
               },
-            },
-          ],
+            ],
+          }),
         );
       }
     } catch (error) {
@@ -351,6 +402,18 @@ const StorySettingsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Background Decorations */}
+      <ImageBackground
+        source={require('../../assets/images/mascot/header_readerpage.jpg')}
+        style={styles.headerBackground}
+        imageStyle={styles.headerBackgroundImage}
+      />
+      <ImageBackground
+        source={require('../../assets/images/mascot/footer_readerpage.jpg')}
+        style={styles.footerBackground}
+        imageStyle={styles.footerBackgroundImage}
+      />
+
       <ParentHeader
         title="Pengaturan Cerita"
         subtitle="Atur judul dan suara"
@@ -365,7 +428,10 @@ const StorySettingsScreen = ({ route, navigation }) => {
         {/* Title Editor Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>📝</Text>
+            <Image
+              source={require('../../assets/images/icon/book.png')}
+              style={styles.sectionIconImage}
+            />
             <View style={styles.sectionHeaderText}>
               <Text style={styles.sectionTitle}>Judul Cerita</Text>
               <Text style={styles.sectionSubtitle}>
@@ -473,7 +539,13 @@ const StorySettingsScreen = ({ route, navigation }) => {
 
         {/* Preview Info */}
         <View style={styles.previewCard}>
-          <Text style={styles.previewTitle}>📚 Info Cerita</Text>
+          <View style={styles.previewHeaderRow}>
+            <Image
+              source={require('../../assets/images/icon/books.png')}
+              style={styles.previewIcon}
+            />
+            <Text style={styles.previewTitle}>Info Cerita</Text>
+          </View>
           <View style={styles.previewRow}>
             <Text style={styles.previewLabel}>Tema:</Text>
             <Text style={styles.previewValue}>{themeData?.label || '-'}</Text>
@@ -626,6 +698,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
+  headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    zIndex: 0,
+  },
+  headerBackgroundImage: {
+    resizeMode: 'cover',
+    opacity: 0.9,
+  },
+  footerBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 250,
+    zIndex: 0,
+  },
+  footerBackgroundImage: {
+    resizeMode: 'cover',
+    opacity: 0.9,
+  },
   scrollContent: {
     flex: 1,
   },
@@ -637,13 +733,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: SPACING.xl,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -658,7 +754,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginRight: SPACING.sm,
-    tintColor: '#E91E63',
   },
   sectionHeaderText: {
     flex: 1,
@@ -676,15 +771,16 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.medium,
   },
   titleInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FAFAFA',
     borderRadius: 12,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.md + 2,
     fontSize: FONTS.sizes.large,
     fontWeight: FONTS.weights.semibold,
     color: '#212121',
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#E91E63',
+    borderStyle: 'dashed',
   },
   characterCount: {
     textAlign: 'right',
@@ -694,17 +790,17 @@ const styles = StyleSheet.create({
   },
   generateAudioButton: {
     backgroundColor: '#E91E63',
-    paddingVertical: SPACING.lg,
-    borderRadius: 12,
+    paddingVertical: SPACING.lg + 2,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
     shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   generateAudioButtonDisabled: {
     backgroundColor: '#E0E0E0',
@@ -714,7 +810,6 @@ const styles = StyleSheet.create({
   generateAudioIconImage: {
     width: 24,
     height: 24,
-    tintColor: '#FFFFFF',
   },
   generateAudioText: {
     color: '#FFFFFF',
@@ -722,11 +817,16 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.bold,
   },
   audioPlayerContainer: {
-    backgroundColor: '#F3E5F5',
-    borderRadius: 16,
-    padding: SPACING.lg,
-    borderWidth: 2,
+    backgroundColor: '#F8F0FF',
+    borderRadius: 20,
+    padding: SPACING.lg + 4,
+    borderWidth: 3,
     borderColor: '#E91E63',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
   audioPlayerHeader: {
     flexDirection: 'row',
@@ -751,34 +851,41 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   playPauseButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#E91E63',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   playPauseIconImage: {
     width: 24,
     height: 24,
-    tintColor: '#FFFFFF',
   },
   audioProgressBar: {
     flex: 1,
-    height: 8,
+    height: 10,
     backgroundColor: '#E0E0E0',
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
   },
   audioProgressFill: {
     width: '0%',
     height: '100%',
     backgroundColor: '#E91E63',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   audioTimer: {
     fontSize: FONTS.sizes.small,
@@ -789,19 +896,24 @@ const styles = StyleSheet.create({
   },
   regenerateButton: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: SPACING.sm,
-    borderRadius: 8,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.xs,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E91E63',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   regenerateButtonIcon: {
-    width: 18,
-    height: 18,
-    tintColor: '#E91E63',
+    width: 20,
+    height: 20,
   },
   regenerateButtonText: {
     color: '#E91E63',
@@ -809,34 +921,57 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.semibold,
   },
   previewCard: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: SPACING.xl,
-    borderLeftWidth: 4,
-    borderLeftColor: '#E91E63',
+    borderWidth: 3,
+    borderColor: '#E91E63',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  previewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: '#F5F5F5',
+  },
+  previewIcon: {
+    width: 32,
+    height: 32,
+    marginRight: SPACING.sm,
   },
   previewTitle: {
     fontSize: FONTS.sizes.xlarge,
     fontWeight: FONTS.weights.heavy,
     color: '#E91E63',
-    marginBottom: SPACING.md,
+    letterSpacing: 0.3,
   },
   previewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
+    alignItems: 'center',
+    marginBottom: SPACING.sm + 2,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
   },
   previewLabel: {
     fontSize: FONTS.sizes.medium,
-    color: '#757575',
-    fontWeight: FONTS.weights.medium,
+    color: '#616161',
+    fontWeight: FONTS.weights.bold,
   },
   previewValue: {
     fontSize: FONTS.sizes.medium,
-    color: '#212121',
-    fontWeight: FONTS.weights.semibold,
+    color: '#E91E63',
+    fontWeight: FONTS.weights.heavy,
   },
   bottomSpacing: {
     height: SPACING.xxl * 2,
@@ -844,37 +979,36 @@ const styles = StyleSheet.create({
   bottomBar: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    paddingVertical: SPACING.md + 2,
+    borderTopWidth: 2,
+    borderTopColor: '#E91E63',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
     flexDirection: 'row',
     gap: SPACING.sm,
   },
   deleteBookButton: {
     backgroundColor: '#F44336',
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.lg + 2,
     paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.sm,
     shadowColor: '#F44336',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
     minWidth: 100,
   },
   deleteBookIcon: {
     width: 24,
     height: 24,
-    tintColor: '#FFFFFF',
   },
   deleteBookText: {
     color: '#FFFFFF',
@@ -884,25 +1018,24 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 1,
     backgroundColor: '#4CAF50',
-    paddingVertical: SPACING.lg,
-    borderRadius: 12,
+    paddingVertical: SPACING.sm + 4,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
     shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   saveButtonSmall: {
     flex: 2,
   },
   saveButtonIcon: {
-    width: 24,
-    height: 24,
-    tintColor: '#FFFFFF',
+    width: 34,
+    height: 34,
   },
   saveButtonDisabled: {
     backgroundColor: '#E0E0E0',
@@ -917,37 +1050,42 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: SPACING.xxl,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
   modalIconImage: {
-    width: 60,
-    height: 60,
-    marginBottom: SPACING.md,
-    tintColor: '#E91E63',
+    width: 80,
+    height: 80,
+    marginBottom: SPACING.lg,
   },
   modalTitle: {
-    fontSize: FONTS.sizes.xlarge,
+    fontSize: FONTS.sizes.xxlarge || 24,
     fontWeight: FONTS.weights.heavy,
     color: '#212121',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   modalMessage: {
     fontSize: FONTS.sizes.medium,
-    color: '#757575',
+    color: '#616161',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
     marginBottom: SPACING.xl,
   },
   modalButtons: {
@@ -957,27 +1095,33 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: 12,
+    paddingVertical: SPACING.md + 4,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonCancel: {
     backgroundColor: '#F5F5F5',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E0E0E0',
   },
   modalButtonConfirm: {
     backgroundColor: '#E91E63',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   modalButtonTextCancel: {
-    color: '#757575',
+    color: '#616161',
     fontSize: FONTS.sizes.medium,
-    fontWeight: FONTS.weights.bold,
+    fontWeight: FONTS.weights.heavy,
   },
   modalButtonTextConfirm: {
     color: '#FFFFFF',
     fontSize: FONTS.sizes.medium,
-    fontWeight: FONTS.weights.bold,
+    fontWeight: FONTS.weights.heavy,
   },
 });
 

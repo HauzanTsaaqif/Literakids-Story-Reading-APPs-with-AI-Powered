@@ -181,6 +181,8 @@ const BookListScreen = ({ navigation }) => {
       // Navigate to preview mode (read-only)
       navigation.navigate('StoryReader', {
         story: {
+          id: book.id,
+          masterBookId: book.id,
           title: book.title,
           content: contentArray,
           genre: book.genre,
@@ -246,6 +248,17 @@ const BookListScreen = ({ navigation }) => {
               />
               <Text style={styles.badgeText} numberOfLines={1}>
                 {item.genre}
+              </Text>
+            </View>
+
+            {/* Age Range Badge */}
+            <View style={[styles.badgeItem, styles.badgeItemWide]}>
+              <Image
+                source={require('../../assets/images/icon/kids.png')}
+                style={styles.badgeIcon}
+              />
+              <Text style={styles.badgeText} numberOfLines={1}>
+                {item.ageRange} tahun
               </Text>
             </View>
 

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './navigation/AppNavigator';
 import AppNavigatorDev from './navigation/AppNavigatorDev';
+import { initializeBaseUrlSetting } from './services/firestoreSetup';
 
 // Toggle between development and production navigator
 // Set to true for development (skip splash, go directly to ParentAdmin)
@@ -20,6 +21,22 @@ if (__DEV__) {
 
 function App() {
   const Navigator = USE_DEV_MODE ? AppNavigatorDev : AppNavigator;
+
+  // Initialize BASE_URL from Firestore on app startup
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log('📱 Initializing app...');
+        await initializeBaseUrlSetting();
+        console.log('✅ App initialization complete');
+      } catch (error) {
+        console.warn('⚠️ App initialization warning:', error.message);
+        console.log('🔄 App will use default BASE_URL as fallback');
+      }
+    };
+
+    initializeApp();
+  }, []);
 
   return (
     <>

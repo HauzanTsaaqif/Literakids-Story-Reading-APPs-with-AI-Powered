@@ -22,7 +22,7 @@ import { CommonActions } from '@react-navigation/native';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -36,27 +36,44 @@ const LoginScreen = ({ navigation }) => {
   }, []);
 
   const checkLoginStatus = async () => {
-    const user = authService.getCurrentUser();
-    if (user) {
-      try {
-        const profile = await authService.getParentProfile(user.uid);
-        setParentData(profile);
+    try {
+      // First, try to get stored user data from AsyncStorage
+      const storedUserData = await authService.getStoredUserData();
+      const storedAuth = await authService.getStoredAuth();
+
+      if (storedUserData && storedAuth) {
+        // User data found in storage, use it
+        setParentData(storedUserData);
         setIsLoggedIn(true);
-      } catch (error) {
-        console.error('Error loading profile:', error);
+      } else {
+        // Check if Firebase auth still has the user
+        const user = authService.getCurrentUser();
+        if (user) {
+          const profile = await authService.getParentProfile(user.uid);
+          setParentData(profile);
+          setIsLoggedIn(true);
+        }
       }
+    } catch (error) {
+      console.error('Error loading profile:', error);
     }
   };
 
   const handleLogin = async () => {
-    if (!emailOrUsername || !password) {
-      Alert.alert('Error', 'Mohon isi semua field');
+    if (!email || !password) {
+      Alert.alert('Error', 'Mohon isi email dan password');
+      return;
+    }
+
+    // Email validation - check if contains @
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Format email tidak valid');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.login(emailOrUsername, password);
+      await authService.login(email, password);
       await checkLoginStatus();
       const rootNavigation = navigation.getParent() || navigation;
 
@@ -67,13 +84,31 @@ const LoginScreen = ({ navigation }) => {
             rootNavigation.dispatch(
               CommonActions.reset({
                 index: 0,
-                routes: [{ name: 'Main' }],
+                routes: [
+                  {
+                    name: 'ParentAdmin',
+                    // Provide nested state so the ParentAdmin tab navigator opens on BookList
+                    state: {
+                      index: 0,
+                      routes: [{ name: 'DashboardScreen' }],
+                    },
+                  },
+                ],
               }),
             ),
         },
       ]);
     } catch (error) {
-      Alert.alert('Login Gagal', error.message);
+      const code = error?.code || '';
+      let message = error?.message || 'Login Gagal';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found'
+      ) {
+        message = 'Email atau kata sandi salah';
+      }
+      Alert.alert('Login Gagal', message);
     } finally {
       setLoading(false);
     }
@@ -90,7 +125,7 @@ const LoginScreen = ({ navigation }) => {
             await authService.logout();
             setIsLoggedIn(false);
             setParentData(null);
-            setEmailOrUsername('');
+            setEmail('');
             setPassword('');
           } catch (error) {
             console.error('Logout error:', error);
@@ -111,19 +146,31 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
+    if (!parentData || !parentData.email) {
+      Alert.alert('Error', 'Data pengguna tidak ditemukan');
+      return;
+    }
+
     setVerifyingPassword(true);
     try {
-      const user = authService.getCurrentUser();
-      if (user && parentData) {
-        // Verify password by attempting to re-authenticate
-        await authService.login(parentData.email, dashboardPassword);
-        setShowDashboardModal(false);
-        setDashboardPassword('');
-        // Navigate to DashboardScreen
-        navigation.navigate('ParentAdmin');
-      }
+      // Verify password by attempting to re-authenticate
+      await authService.login(parentData.email, dashboardPassword);
+      setShowDashboardModal(false);
+      setDashboardPassword('');
+      // Navigate to DashboardScreen
+      navigation.navigate('ParentAdmin');
     } catch (error) {
-      Alert.alert('Verifikasi Gagal', 'Password salah! Silakan coba lagi.');
+      const code = error?.code || '';
+      let message = 'Password salah! Silakan coba lagi.';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password'
+      ) {
+        message = 'Password salah! Silakan coba lagi.';
+      } else if (code === 'auth/too-many-requests') {
+        message = 'Terlalu banyak percobaan. Coba lagi nanti.';
+      }
+      Alert.alert('Verifikasi Gagal', message);
       setDashboardPassword('');
     } finally {
       setVerifyingPassword(false);
@@ -171,12 +218,12 @@ const LoginScreen = ({ navigation }) => {
 
               <View style={styles.form}>
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Email atau Username</Text>
+                  <Text style={styles.label}>Email</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Masukkan email atau username"
-                    value={emailOrUsername}
-                    onChangeText={setEmailOrUsername}
+                    placeholder="Masukkan email"
+                    value={email}
+                    onChangeText={setEmail}
                     autoCapitalize="none"
                     keyboardType="email-address"
                   />
@@ -314,6 +361,22 @@ const ParentProfileCardView = ({
     return '👤';
   };
 
+  const formatBirthDate = dateString => {
+    if (!dateString) return '-';
+    try {
+      // Handle YYYY-MM-DD format
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+
+      return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+      });
+    } catch (error) {
+      return '-';
+    }
+  };
+
   return (
     <View style={styles.profileContainer}>
       {/* Main Profile Card */}
@@ -359,10 +422,7 @@ const ParentProfileCardView = ({
             />
             <Text style={styles.statLabel}>Tanggal Lahir</Text>
             <Text style={styles.statValue}>
-              {new Date(parentData.birthDate).toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'short',
-              })}
+              {formatBirthDate(parentData.birthDate)}
             </Text>
           </View>
         </View>

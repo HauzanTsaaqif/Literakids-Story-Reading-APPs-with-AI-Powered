@@ -13,6 +13,7 @@ import {
   Image,
   ImageBackground,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import { authService } from '../../services/firebaseService';
@@ -32,14 +33,70 @@ const RegisterScreen = ({ navigation }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  // Date picker states
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Generate arrays for date picker
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = [
+    { value: '01', label: '01' },
+    { value: '02', label: '02' },
+    { value: '03', label: '03' },
+    { value: '04', label: '04' },
+    { value: '05', label: '05' },
+    { value: '06', label: '06' },
+    { value: '07', label: '07' },
+    { value: '08', label: '08' },
+    { value: '09', label: '09' },
+    { value: '10', label: '10' },
+    { value: '11', label: '11' },
+    { value: '12', label: '12' },
+  ];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
+
+  const handleDateConfirm = () => {
+    if (selectedDay && selectedMonth && selectedYear) {
+      // Format: YYYY-MM-DD for consistent parsing
+      const dateString = `${selectedYear}-${selectedMonth}-${selectedDay.toString().padStart(2, '0')}`;
+      updateField('birthDate', dateString);
+      setShowDatePicker(false);
+    } else {
+      Alert.alert('Error', 'Mohon pilih tanggal lengkap');
+    }
+  };
+
+  const formatDateDisplay = dateString => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   const handleRegister = async () => {
     // Validation
     if (Object.values(formData).some(val => !val)) {
       Alert.alert('Error', 'Mohon isi semua field');
+      return;
+    }
+
+    // Email validation - check if contains @
+    if (!formData.email.includes('@')) {
+      Alert.alert('Error', 'Format email tidak valid');
       return;
     }
 
@@ -174,13 +231,24 @@ const RegisterScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tanggal Lahir *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="DD/MM/YYYY"
-                value={formData.birthDate}
-                onChangeText={val => updateField('birthDate', val)}
-              />
+              <Text style={styles.label}>Tanggal Lahir Anak *</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(true)}>
+                <Image
+                  source={require('../../assets/images/icon/birtday_cake.png')}
+                  style={styles.dateIcon}
+                />
+                <Text
+                  style={[
+                    styles.datePickerText,
+                    !formData.birthDate && styles.datePickerPlaceholder,
+                  ]}>
+                  {formData.birthDate
+                    ? formatDateDisplay(formData.birthDate)
+                    : 'Pilih tanggal lahir anak'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.inputContainer}>
@@ -239,6 +307,118 @@ const RegisterScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom Date Picker Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showDatePicker}
+        onRequestClose={() => setShowDatePicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Image
+                source={require('../../assets/images/icon/birtday_cake.png')}
+                style={styles.modalIcon}
+              />
+              <Text style={styles.modalTitle}>Pilih Tanggal Lahir Anak</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.datePickerContainer}>
+              {/* Day Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Tanggal</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}>
+                  {days.map(day => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.pickerItem,
+                        selectedDay === day && styles.pickerItemActive,
+                      ]}
+                      onPress={() => setSelectedDay(day)}>
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          selectedDay === day && styles.pickerItemTextActive,
+                        ]}>
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Month Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Bulan</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}>
+                  {months.map(month => (
+                    <TouchableOpacity
+                      key={month.value}
+                      style={[
+                        styles.pickerItem,
+                        selectedMonth === month.value &&
+                          styles.pickerItemActive,
+                      ]}
+                      onPress={() => setSelectedMonth(month.value)}>
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          selectedMonth === month.value &&
+                            styles.pickerItemTextActive,
+                        ]}>
+                        {month.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Year Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Tahun</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}>
+                  {years.map(year => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.pickerItem,
+                        selectedYear === year && styles.pickerItemActive,
+                      ]}
+                      onPress={() => setSelectedYear(year)}>
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          selectedYear === year && styles.pickerItemTextActive,
+                        ]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={handleDateConfirm}>
+              <Text style={styles.confirmButtonText}>Konfirmasi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -426,6 +606,145 @@ const styles = StyleSheet.create({
     color: '#757575',
     fontSize: Math.min(SCREEN_WIDTH * 0.035, 14),
     fontWeight: FONTS.weights.semibold,
+  },
+  // Date Picker Styles
+  datePickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: SPACING.md + 2,
+    paddingHorizontal: SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  dateIcon: {
+    width: 24,
+    height: 24,
+    marginRight: SPACING.sm,
+    resizeMode: 'contain',
+  },
+  datePickerText: {
+    fontSize: Math.min(SCREEN_WIDTH * 0.038, 15),
+    color: '#212121',
+    flex: 1,
+  },
+  datePickerPlaceholder: {
+    color: '#9E9E9E',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    padding: SPACING.xl,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg,
+  },
+  modalIcon: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
+  },
+  modalTitle: {
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
+    color: COLORS.text,
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFE5E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: '#E91E63',
+    fontWeight: FONTS.weights.bold,
+  },
+  datePickerContainer: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  pickerColumn: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: FONTS.sizes.small,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  pickerScroll: {
+    maxHeight: 180,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  pickerItem: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E0E0E0',
+  },
+  pickerItemActive: {
+    backgroundColor: '#E91E63',
+  },
+  pickerItemText: {
+    fontSize: FONTS.sizes.medium,
+    color: COLORS.text,
+    fontWeight: FONTS.weights.medium,
+  },
+  pickerItemTextActive: {
+    color: COLORS.white,
+    fontWeight: FONTS.weights.bold,
+  },
+  confirmButton: {
+    backgroundColor: '#E91E63',
+    borderRadius: 16,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    shadowColor: '#E91E63',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  confirmButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
+    letterSpacing: 0.5,
   },
 });
 

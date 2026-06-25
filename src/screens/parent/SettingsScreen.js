@@ -80,10 +80,6 @@ const SettingsScreen = ({ navigation }) => {
       <ScrollView style={styles.scrollContent}>
         {/* Ukuran Font */}
         <View style={styles.section}>
-          <Image
-            source={require('../../assets/images/icon/settings.png')}
-            style={styles.settingsTitleIcon}
-          />
           <Text style={styles.sectionDesc}>
             Pilih ukuran tulisan yang nyaman untuk anak
           </Text>

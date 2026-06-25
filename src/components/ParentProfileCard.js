@@ -2,7 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 
-const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLogout }) => {
+const ParentProfileCard = ({
+  parentData,
+  onManageContent,
+  onViewDashboard,
+  onLogout,
+}) => {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Selamat Pagi';
@@ -11,7 +16,7 @@ const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLog
     return 'Selamat Malam';
   };
 
-  const getGenderEmoji = (gender) => {
+  const getGenderEmoji = gender => {
     if (gender === 'male') return '👨';
     if (gender === 'female') return '👩';
     return '👤';
@@ -46,7 +51,7 @@ const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLog
             <Text style={styles.infoLabel}>Usia Anak</Text>
             <Text style={styles.infoValue}>{parentData.childAge} tahun</Text>
           </View>
-          
+
           <View style={[styles.infoCard, styles.infoCardMiddle]}>
             <Text style={styles.infoIcon}>🎂</Text>
             <Text style={styles.infoLabel}>Tanggal Lahir</Text>
@@ -54,7 +59,7 @@ const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLog
               {new Date(parentData.birthDate).toLocaleDateString('id-ID', {
                 day: 'numeric',
                 month: 'short',
-                year: 'numeric'
+                year: 'numeric',
               })}
             </Text>
           </View>
@@ -68,15 +73,15 @@ const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLog
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.primaryButton]} 
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryButton]}
             onPress={onManageContent}>
             <Text style={styles.actionIcon}>📖</Text>
             <Text style={styles.actionButtonText}>Kelola Konten</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.secondaryButton]} 
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryButton]}
             onPress={onViewDashboard}>
             <Text style={styles.actionIcon}>📊</Text>
             <Text style={styles.actionButtonTextSecondary}>Dashboard</Text>
@@ -90,8 +95,11 @@ const ParentProfileCard = ({ parentData, onManageContent, onViewDashboard, onLog
             <View style={styles.settingItem}>
               <Text style={styles.settingLabel}>Ukuran Font:</Text>
               <Text style={styles.settingValue}>
-                {parentData.settings?.fontSize === 'large' ? 'Besar' :
-                 parentData.settings?.fontSize === 'small' ? 'Kecil' : 'Sedang'}
+                {parentData.settings?.fontSize === 'large'
+                  ? 'Besar'
+                  : parentData.settings?.fontSize === 'small'
+                    ? 'Kecil'
+                    : 'Sedang'}
               </Text>
             </View>
             <View style={styles.settingItem}>

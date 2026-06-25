@@ -17,6 +17,7 @@ import BookListScreen from '../screens/parent/BookListScreen';
 import SettingsScreen from '../screens/parent/SettingsScreen';
 import GlobalBookListScreen from '../screens/parent/GlobalBookListScreen';
 import GenerateStoryScreen from '../screens/parent/GenerateStoryScreen';
+import StorySettingsScreen from '../screens/parent/StorySettingsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -163,6 +164,13 @@ export default function AppNavigatorDev() {
         <Stack.Screen
           name="GenerateStory"
           component={GenerateStoryScreen}
+          options={{
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="StorySettingsScreen"
+          component={StorySettingsScreen}
           options={{
             presentation: 'card',
           }}
