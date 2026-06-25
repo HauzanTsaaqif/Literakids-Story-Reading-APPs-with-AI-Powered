@@ -39,6 +39,11 @@ export const feedbackService = {
         visualAppealScore: feedbackData.visualAppealScore, // 1-5
         cognitiveLoadScore: feedbackData.cognitiveLoadScore, // 1-5
         engagementScore: feedbackData.engagementScore, // 0-2 (No/Maybe/Yes)
+        moralEvaluation:
+          typeof feedbackData.moralEvaluation === 'boolean'
+            ? feedbackData.moralEvaluation
+            : null,
+        moralValue: feedbackData.moralValue || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

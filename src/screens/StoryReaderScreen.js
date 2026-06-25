@@ -28,6 +28,94 @@ import { auth } from '../config/firebase';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+const MORAL_EVALUATION_QUESTIONS = {
+  kejujuran: {
+    1: 'Kalau kita tidak sengaja memecahkan barang, apa yang harus kita lakukan?',
+    2: 'Kalau kita melihat mainan teman terjatuh, yang baik yang mana?',
+  },
+  tanggung_jawab: {
+    1: 'Setelah selesai bermain, apa yang harus kita lakukan?',
+    2: 'Bagaimana cara kita merawat tanaman di rumah?',
+  },
+  rasa_hormat: {
+    1: 'Sebelum pergi ke sekolah atau bermain, kita harus melakukan apa kepada orang tua?',
+    2: 'Kalau ada teman yang sedang berbicara, kita harus bagaimana?',
+  },
+  empati: {
+    1: 'Kalau ada teman yang terjatuh, yang baik yang mana?',
+    2: 'Kalau melihat teman sedang sedih, apa yang kita lakukan?',
+  },
+  keberanian: {
+    1: 'Saat ibu guru bertanya di kelas, anak yang berani yang mana?',
+    2: 'Kalau kita berbuat salah kepada teman, kita harus bagaimana?',
+  },
+};
+
+// NOTE: Nama file di folder evaluation tidak konsisten huruf besar/kecil.
+// Mapping ini sengaja mengikuti nama file persis untuk menghindari error di Android.
+const MORAL_EVALUATION_IMAGES = {
+  kejujuran_1: {
+    positive: require('../assets/images/evaluation/kejujuran_1a.png'),
+    negative: require('../assets/images/evaluation/kejujuran_1b.png'),
+  },
+  kejujuran_2: {
+    positive: require('../assets/images/evaluation/Kejujuran_2a.png'),
+    negative: require('../assets/images/evaluation/Kejujuran_2b.png'),
+  },
+  tanggung_jawab_1: {
+    positive: require('../assets/images/evaluation/tanggung_jawab_1a.png'),
+    negative: require('../assets/images/evaluation/tanggung_jawab_1b.png'),
+  },
+  tanggung_jawab_2: {
+    positive: require('../assets/images/evaluation/tanggung_jawab_2a.png'),
+    negative: require('../assets/images/evaluation/tanggung_jawab_2b.png'),
+  },
+  rasa_hormat_1: {
+    positive: require('../assets/images/evaluation/rasa_hormat_1a.png'),
+    negative: require('../assets/images/evaluation/rasa_hormat_1b.png'),
+  },
+  rasa_hormat_2: {
+    positive: require('../assets/images/evaluation/rasa_hormat_2a.png'),
+    negative: require('../assets/images/evaluation/rasa_hormat_2b.png'),
+  },
+  empati_1: {
+    positive: require('../assets/images/evaluation/empati_1a.png'),
+    negative: require('../assets/images/evaluation/Empati_1b.png'),
+  },
+  empati_2: {
+    positive: require('../assets/images/evaluation/Empati_2a.png'),
+    negative: require('../assets/images/evaluation/Empati_2b.png'),
+  },
+  keberanian_1: {
+    positive: require('../assets/images/evaluation/Keberanian_1a.png'),
+    negative: require('../assets/images/evaluation/Keberanian_1b.png'),
+  },
+  keberanian_2: {
+    positive: require('../assets/images/evaluation/Keberanian_2a.png'),
+    negative: require('../assets/images/evaluation/Keberanian_2b.png'),
+  },
+};
+
+const getMoralCategoryKey = moralValue => {
+  const moralLower = moralValue?.toLowerCase() || '';
+  if (moralLower.includes('kejujuran')) return 'kejujuran';
+  if (moralLower.includes('empati')) return 'empati';
+  if (moralLower.includes('keberanian')) return 'keberanian';
+  if (moralLower.includes('tanggung jawab')) return 'tanggung_jawab';
+  if (moralLower.includes('rasa hormat')) return 'rasa_hormat';
+  return null;
+};
+
+const pickMoralQuestion = moralValue => {
+  const category = getMoralCategoryKey(moralValue) || 'kejujuran';
+  const variant = Math.random() < 0.5 ? 1 : 2;
+  const key = `${category}_${variant}`;
+  const questionText =
+    MORAL_EVALUATION_QUESTIONS[category]?.[variant] ||
+    MORAL_EVALUATION_QUESTIONS.kejujuran[1];
+  return { key, questionText };
+};
+
 const StoryReaderScreen = ({ route, navigation }) => {
   const { story } = route.params || {};
 
@@ -39,8 +127,31 @@ const StoryReaderScreen = ({ route, navigation }) => {
   const [cognitiveScore, setCognitiveScore] = useState(null);
   const [engagementScore, setEngagementScore] = useState(null);
 
-  const currentParentId = auth.currentUser?.uid;
-  const masterBookId = story.id || story.masterBookId;
+  const [feedbackStep, setFeedbackStep] = useState(1); // 1 = moral evaluation, 2 = rating cerita
+  const [moralQuestionKey, setMoralQuestionKey] = useState(null);
+  const [moralQuestionText, setMoralQuestionText] = useState('');
+  const [moralEvaluation, setMoralEvaluation] = useState(null); // true=positif, false=negatif
+
+  const getCurrentParentId = () => auth.currentUser?.uid || null;
+  const getMasterBookId = () =>
+    story?.masterBookId ||
+    story?.id ||
+    route?.params?.masterBookId ||
+    route?.params?.bookId ||
+    route?.params?.id ||
+    null;
+
+  const openFeedbackModal = () => {
+    const picked = pickMoralQuestion(story?.moralValue);
+    setFeedbackStep(1);
+    setMoralQuestionKey(picked.key);
+    setMoralQuestionText(picked.questionText);
+    setMoralEvaluation(null);
+    setVisualScore(null);
+    setCognitiveScore(null);
+    setEngagementScore(null);
+    setShowFeedbackModal(true);
+  };
 
   if (!story || !story.content || !Array.isArray(story.content)) {
     return (
@@ -233,6 +344,14 @@ const StoryReaderScreen = ({ route, navigation }) => {
   };
 
   const submitFeedback = async () => {
+    if (moralEvaluation === null) {
+      Alert.alert(
+        'Tunggu Dulu!',
+        'Yuk jawab dulu pertanyaan moralnya dengan memilih gambar yang baik atau tidak baik.',
+      );
+      return;
+    }
+
     if (!visualScore || !cognitiveScore || engagementScore === null) {
       Alert.alert(
         'Tunggu Dulu!',
@@ -240,6 +359,9 @@ const StoryReaderScreen = ({ route, navigation }) => {
       );
       return;
     }
+
+    const currentParentId = getCurrentParentId();
+    const masterBookId = getMasterBookId();
 
     if (!currentParentId || !masterBookId) {
       Alert.alert('Error', 'Data parent atau buku tidak valid.');
@@ -252,6 +374,8 @@ const StoryReaderScreen = ({ route, navigation }) => {
         visualAppealScore: visualScore,
         cognitiveLoadScore: cognitiveScore,
         engagementScore: engagementScore,
+        moralEvaluation: moralEvaluation,
+        moralValue: story?.moralValue || '',
       });
 
       setHasSubmittedFeedback(true);
@@ -558,7 +682,7 @@ const StoryReaderScreen = ({ route, navigation }) => {
                 styles.navButton,
                 { backgroundColor: COLORS.orange },
               ]}
-              onPress={() => setShowFeedbackModal(true)}
+              onPress={openFeedbackModal}
               disabled={hasSubmittedFeedback}>
               <Image
                 source={require('../assets/images/icon/star.png')}
@@ -599,99 +723,179 @@ const StoryReaderScreen = ({ route, navigation }) => {
               <Text style={styles.closeModalText}>X</Text>
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Bagaimana Ceritanya?</Text>
+            <View style={styles.modalHeaderRow}>
+              {feedbackStep === 2 ? (
+                <TouchableOpacity
+                  style={styles.backStepButton}
+                  onPress={() => setFeedbackStep(1)}>
+                  <Text style={styles.backStepText}>← Kembali</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.backStepSpacer} />
+              )}
+              {/* <View style={styles.stepPill}>
+                <Text style={styles.stepPillText}>{feedbackStep}/2</Text>
+              </View> */}
+            </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* 1. Visual Appeal */}
-              <View style={styles.questionContainer}>
-                <Text style={styles.questionText}>
-                  Bagaimana gambar-gambar di cerita ini, suka nggak?
-                </Text>
-                <View style={styles.emojiRow}>
-                  {[1, 2, 3, 4, 5].map(score => {
-                    const emojis = ['😡', '🙁', '😐', '🙂', '😍'];
-                    return (
-                      <TouchableOpacity
-                        key={`vis-${score}`}
-                        onPress={() => setVisualScore(score)}
-                        style={[
-                          styles.emojiButton,
-                          visualScore === score && styles.emojiActive,
-                        ]}>
-                        <Text style={styles.emojiIcon}>
-                          {emojis[score - 1]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
+              {feedbackStep === 1 ? (
+                <>
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.questionText}>{moralQuestionText}</Text>
 
-              {/* 2. Cognitive Load */}
-              <View style={styles.questionContainer}>
-                <Text style={styles.questionText}>
-                  Ceritanya seru atau susah dibaca?
-                </Text>
-                <View style={styles.emojiRow}>
-                  {[1, 2, 3, 4, 5].map(score => {
-                    // 1 = Susah/Bingung, 5 = Gampang/Seru
-                    const emojis = ['🤯', '😕', '😐', '🙂', '🤩'];
-                    return (
-                      <TouchableOpacity
-                        key={`cog-${score}`}
-                        onPress={() => setCognitiveScore(score)}
-                        style={[
-                          styles.emojiButton,
-                          cognitiveScore === score && styles.emojiActive,
-                        ]}>
-                        <Text style={styles.emojiIcon}>
-                          {emojis[score - 1]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
+                    {moralQuestionKey &&
+                    MORAL_EVALUATION_IMAGES[moralQuestionKey] ? (
+                      <View style={styles.moralOptionsRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.moralOptionCard,
+                            moralEvaluation === true &&
+                              styles.moralOptionActive,
+                          ]}
+                          onPress={() => setMoralEvaluation(true)}
+                          activeOpacity={0.85}>
+                          <Image
+                            source={
+                              MORAL_EVALUATION_IMAGES[moralQuestionKey].positive
+                            }
+                            style={styles.moralOptionImage}
+                          />
+                        </TouchableOpacity>
 
-              {/* 3. Engagement (Again-Again) */}
-              <View style={styles.questionContainer}>
-                <Text style={styles.questionText}>
-                  Besok mau baca cerita pakai aplikasi ini lagi nggak?
-                </Text>
-                <View style={styles.emojiRow}>
-                  {[0, 1, 2].map(score => {
-                    const emojis = ['👎\nNggak', '🤔\nMungkin', '👍\nMau!'];
-                    return (
-                      <TouchableOpacity
-                        key={`eng-${score}`}
-                        onPress={() => setEngagementScore(score)}
-                        style={[
-                          styles.emojiButtonLarge,
-                          engagementScore === score && styles.emojiActiveLarge,
-                        ]}>
-                        <Text style={styles.emojiIconLarge}>
-                          {emojis[score]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.moralOptionCard,
+                            moralEvaluation === false &&
+                              styles.moralOptionActive,
+                          ]}
+                          onPress={() => setMoralEvaluation(false)}
+                          activeOpacity={0.85}>
+                          <Image
+                            source={
+                              MORAL_EVALUATION_IMAGES[moralQuestionKey].negative
+                            }
+                            style={styles.moralOptionImage}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={{ paddingVertical: SPACING.lg }}>
+                        <ActivityIndicator color={COLORS.primary} />
+                      </View>
+                    )}
+                  </View>
 
-              {/* Submit Button */}
-              <TouchableOpacity
-                style={[
-                  styles.submitFeedbackButton,
-                  isSubmittingFeedback && { opacity: 0.7 },
-                ]}
-                onPress={submitFeedback}
-                disabled={isSubmittingFeedback}>
-                {isSubmittingFeedback ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.submitFeedbackText}>Kirim Penilaian</Text>
-                )}
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.stepActionButton,
+                      moralEvaluation === null && styles.stepActionDisabled,
+                    ]}
+                    onPress={() => {
+                      if (moralEvaluation === null) return;
+                      setFeedbackStep(2);
+                    }}
+                    disabled={moralEvaluation === null}>
+                    <Text style={styles.stepActionText}>Lanjut</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* 1. Visual Appeal */}
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.questionText}>
+                      Bagaimana gambar-gambar di cerita ini, suka nggak?
+                    </Text>
+                    <View style={styles.emojiRow}>
+                      {[1, 2, 3, 4, 5].map(score => {
+                        const emojis = ['😡', '🙁', '😐', '🙂', '😍'];
+                        return (
+                          <TouchableOpacity
+                            key={`vis-${score}`}
+                            onPress={() => setVisualScore(score)}
+                            style={[
+                              styles.emojiButton,
+                              visualScore === score && styles.emojiActive,
+                            ]}>
+                            <Text style={styles.emojiIcon}>
+                              {emojis[score - 1]}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* 2. Cognitive Load */}
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.questionText}>
+                      Ceritanya seru atau susah dibaca?
+                    </Text>
+                    <View style={styles.emojiRow}>
+                      {[1, 2, 3, 4, 5].map(score => {
+                        // 1 = Susah/Bingung, 5 = Gampang/Seru
+                        const emojis = ['🤯', '😕', '😐', '🙂', '🤩'];
+                        return (
+                          <TouchableOpacity
+                            key={`cog-${score}`}
+                            onPress={() => setCognitiveScore(score)}
+                            style={[
+                              styles.emojiButton,
+                              cognitiveScore === score && styles.emojiActive,
+                            ]}>
+                            <Text style={styles.emojiIcon}>
+                              {emojis[score - 1]}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* 3. Engagement (Again-Again) */}
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.questionText}>
+                      Besok mau baca cerita pakai aplikasi ini lagi nggak?
+                    </Text>
+                    <View style={styles.emojiRow}>
+                      {[0, 1, 2].map(score => {
+                        const emojis = ['👎\nNggak', '🤔\nMungkin', '👍\nMau!'];
+                        return (
+                          <TouchableOpacity
+                            key={`eng-${score}`}
+                            onPress={() => setEngagementScore(score)}
+                            style={[
+                              styles.emojiButtonLarge,
+                              engagementScore === score &&
+                                styles.emojiActiveLarge,
+                            ]}>
+                            <Text style={styles.emojiIconLarge}>
+                              {emojis[score]}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.submitFeedbackButton,
+                      isSubmittingFeedback && { opacity: 0.7 },
+                    ]}
+                    onPress={submitFeedback}
+                    disabled={isSubmittingFeedback}>
+                    {isSubmittingFeedback ? (
+                      <ActivityIndicator color={COLORS.white} />
+                    ) : (
+                      <Text style={styles.submitFeedbackText}>
+                        Kirim Penilaian
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1085,11 +1289,84 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+  },
+  backStepButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFE5CC',
+    borderRadius: 14,
+  },
+  backStepText: {
+    fontSize: FONTS.sizes.small,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.primary,
+  },
+  backStepSpacer: {
+    width: 90,
+  },
+  stepPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF8F0',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFE5CC',
+  },
+  stepPillText: {
+    fontSize: FONTS.sizes.small,
+    fontWeight: FONTS.weights.bold,
+    color: COLORS.textLight,
+  },
   questionContainer: {
     marginBottom: SPACING.lg,
     backgroundColor: '#FFF8F0',
     padding: SPACING.md,
     borderRadius: 20,
+  },
+  moralOptionsRow: {
+    flexDirection: 'column',
+    gap: SPACING.md,
+  },
+  moralOptionCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: COLORS.white,
+    padding: SPACING.sm,
+    alignItems: 'center',
+  },
+  moralOptionActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFE5CC',
+  },
+  moralOptionImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 14,
+    resizeMode: 'contain',
+    backgroundColor: '#FFF8F0',
+  },
+  stepActionButton: {
+    backgroundColor: COLORS.secondary,
+    paddingVertical: SPACING.md,
+    borderRadius: 22,
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  stepActionDisabled: {
+    opacity: 0.5,
+  },
+  stepActionText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.large,
+    fontWeight: FONTS.weights.heavy,
   },
   questionText: {
     fontSize: FONTS.sizes.medium,
